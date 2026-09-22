@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1f6feb">
+<title>跑单记账 · 账单倒计时</title>
+<style>
+:root {
+  --bg: #f2f4f8;
+  --card: #ffffff;
+  --text: #1c2733;
+  --muted: #6b7787;
+  --line: #e4e9f0;
+  --blue: #1f6feb;
+  --blue-weak: #e8f0fe;
+  --green: #16a34a;
+  --green-weak: #e7f7ee;
+  --red: #dc2626;
+  --red-weak: #fdeaea;
+  --orange: #ea580c;
+  --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5;
+  padding-bottom: 40px;
+}
+.wrap { max-width: 720px; margin: 0 auto; padding: 14px 14px 20px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 14px; }
+.header h1 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+.header h1 .logo {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--blue); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1rem;
+}
+.header .date { color: var(--muted); font-size: .82rem; text-align: right; }
+
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tabs button {
+  flex: 1; padding: 10px 0; border: 1px solid var(--line); background: var(--card);
+  border-radius: 12px; font-size: .85rem; color: var(--muted); cursor: pointer; transition: .15s;
+}
+.tabs button.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+
+.card {
+  background: var(--card); border-radius: var(--radius); padding: 16px;
+  box-shadow: 0 1px 3px rgba(16,32,48,.06); margin-bottom: 14px;
+}
+.card h3 { font-size: .88rem; color: var(--muted); font-weight: 600; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.stat { background: var(--card); border-radius: var(--radius); padding: 14px; box-shadow: 0 1px 3px rgba(16,32,48,.06); }
+.stat .label { font-size: .78rem; color: var(--muted); }
+.stat .value { font-size: 1.4rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.stat .sub { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+.stat .value.green { color: var(--green); }
+.stat .value.red { color: var(--red); }
+.stat .value.blue { color: var(--blue); }
+.stat .value.orange { color: var(--orange); }
+
+.progress-track { height: 14px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4f8ef7, var(--blue)); transition: width .4s; }
+.progress-fill.full { background: linear-gradient(90deg, #34c07a, var(--green)); }
+.progress-fill.proj { background: linear-gradient(90deg, #f5b26b, var(--orange)); }
+.progress-fill.proj.full { background: linear-gradient(90deg, #34c07a, var(--green)); }
+.progress-note { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-top: 6px; }
+
+.next-bill { display: flex; align-items: center; gap: 14px; }
+.next-bill .countdown {
+  min-width: 84px; text-align: center; padding: 12px 8px; border-radius: 12px;
+}
+.next-bill .countdown.soon { background: var(--red-weak); color: var(--red); }
+.next-bill .countdown.ok { background: var(--green-weak); color: var(--green); }
+.next-bill .countdown.warn { background: #fff4e5; color: var(--orange); }
+.next-bill .countdown .num { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+.next-bill .countdown .unit { font-size: .72rem; }
+.next-bill .info { flex: 1; }
+.next-bill .info .name { font-size: 1rem; font-weight: 700; }
+.next-bill .info .row { font-size: .82rem; color: var(--muted); margin-top: 3px; }
+.next-bill .info .row b { color: var(--text); font-variant-numeric: tabular-nums; }
+.daily-need {
+  margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
+  background: #fff4e5; color: var(--orange); font-weight: 600; text-align: center;
+}
+.daily-need.safe { background: var(--green-weak); color: var(--green); }
+/* 日均跑单金额高亮 */
+.money-hl {
+  display: inline-block; padding: 1px 8px; border-radius: 8px; margin: 1px 2px;
+  background: #fff; color: var(--red); font-weight: 800;
+  font-variant-numeric: tabular-nums; font-size: 1.02em;
+  box-shadow: 0 0 0 1px rgba(220,38,38,.25);
+}
+.money-hl.blue { color: var(--blue); box-shadow: 0 0 0 1px rgba(31,111,235,.25); }
+.money-hl.green { color: var(--green); box-shadow: 0 0 0 1px rgba(22,163,74,.25); }
+.tag { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+.tag.danger { background: var(--red-weak); color: var(--red); }
+.tag.safe { background: var(--green-weak); color: var(--green); }
+.tag.gray { background: #eef1f5; color: var(--muted); }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-grid .full { grid-column: 1 / -1; }
+label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+input, select, textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  font-size: 1rem; background: #fbfcfe; color: var(--text); outline: none; font-family: inherit;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--blue); background: #fff; }
+textarea { font-size: .8rem; min-height: 90px; resize: vertical; word-break: break-all; }
+.btn {
+  display: inline-block; padding: 10px 18px; border: none; border-radius: 10px;
+  background: var(--blue); color: #fff; font-size: .95rem; font-weight: 600; cursor: pointer;
+}
+.btn:active { opacity: .85; }
+.btn.full { width: 100%; padding: 12px; }
+.btn.ghost { background: var(--blue-weak); color: var(--blue); }
+.btn.danger { background: var(--red-weak); color: var(--red); }
+.btn.sm { padding: 5px 12px; font-size: .8rem; border-radius: 8px; }
+
+.type-switch { display: flex; gap: 8px; margin-bottom: 12px; }
+.type-switch button {
+  flex: 1; padding: 10px 0; border: 1px solid var(--line); background: #fbfcfe;
+  border-radius: 10px; font-size: .9rem; color: var(--muted); cursor: pointer;
+}
+.type-switch button.active.income { background: var(--green-weak); border-color: var(--green); color: var(--green); font-weight: 700; }
+.type-switch button.active.expense { background: var(--red-weak); border-color: var(--red); color: var(--red); font-weight: 700; }
+.type-switch button.active.transfer { background: var(--blue-weak); border-color: var(--blue); color: var(--blue); font-weight: 700; }
+
+.list-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 4px; border-bottom: 1px solid var(--line);
+}
+.list-item:last-child { border-bottom: none; }
+.list-item .li-main { flex: 1; min-width: 0; }
+.list-item .li-title { font-size: .95rem; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.list-item .li-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.list-item .li-amount { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.list-item .li-amount.green { color: var(--green); }
+.list-item .li-amount.red { color: var(--red); }
+.list-item .li-amount.blue { color: var(--blue); }
+.list-item .li-amount.orange { color: var(--orange); }
+.actions { display: flex; gap: 6px; }
+.empty { text-align: center; color: var(--muted); font-size: .85rem; padding: 18px 0; }
+
+.chart { display: flex; align-items: flex-end; gap: 2px; height: 150px; padding: 8px 0 0; }
+.chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
+.chart .bar { width: 100%; min-height: 2px; background: #7fb0ff; border-radius: 3px 3px 0 0; }
+.chart .bar.today { background: var(--blue); }
+.chart .x-labels { display: flex; gap: 2px; margin-top: 4px; }
+.chart .x-labels span { flex: 1; text-align: center; font-size: .6rem; color: var(--muted); }
+
+#toast {
+  position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%) translateY(20px);
+  background: rgba(28,39,51,.92); color: #fff; padding: 10px 20px; border-radius: 10px;
+  font-size: .88rem; opacity: 0; pointer-events: none; transition: .25s; z-index: 99;
+  max-width: 86vw; text-align: center;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.hidden { display: none !important; }
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed; inset: 0; background: rgba(15,25,38,.45); z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal {
+  background: var(--card); border-radius: 16px; width: 100%; max-width: 400px;
+  padding: 18px; box-shadow: 0 10px 40px rgba(16,32,48,.25);
+  max-height: 85vh; overflow-y: auto;
+}
+.modal h4 { font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.modal h4 .m-icon {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--blue-weak); color: var(--blue);
+  display: inline-flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700;
+}
+.modal h4.danger .m-icon { background: var(--red-weak); color: var(--red); }
+.modal .msg { font-size: .92rem; color: var(--text); line-height: 1.6; }
+.modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+.modal-btns .btn { flex: 1; padding: 11px 0; }
+.modal-btns .btn.danger-solid { background: var(--red); }
+
+/* 账单日历 */
+.cal-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; }
+.cal-title { font-size: .98rem; font-weight: 700; min-width: 110px; text-align: center; }
+.cal-nav {
+  width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line); background: #fbfcfe;
+  font-size: 1.1rem; color: var(--muted); cursor: pointer; line-height: 1;
+}
+.cal-nav:active { background: var(--blue-weak); }
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 4px; }
+.cal-week span { text-align: center; font-size: .72rem; color: var(--muted); padding: 3px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-cell {
+  position: relative; min-height: 64px; border-radius: 9px; background: #f6f8fb;
+  display: flex; flex-direction: column; align-items: stretch;
+  font-size: .78rem; color: var(--muted); cursor: default;
+  font-variant-numeric: tabular-nums; padding: 3px; overflow: hidden;
+}
+.cal-cell.empty { background: transparent; cursor: default; min-height: 0; }
+.cal-cell.today { background: var(--blue-weak); outline: 1.5px solid var(--blue); }
+.cal-cell.has-bill { background: var(--red-weak); cursor: pointer; }
+.cal-cell.has-bill.today { outline: 1.5px solid var(--red); }
+.cal-cell .cal-daynum { text-align: center; line-height: 1.2; font-weight: 600; }
+.cal-cell.today .cal-daynum { color: var(--blue); font-weight: 700; }
+.cal-cell.has-bill .cal-daynum { color: var(--red); font-weight: 700; }
+.cal-cell .cal-bills { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.cal-cell .cal-bill {
+  background: rgba(255,255,255,.75); border-radius: 5px; padding: 1px 3px;
+  font-size: .6rem; line-height: 1.3; color: var(--red);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border: 1px solid rgba(220,38,38,.15);
+}
+.cal-cell .cal-bill .cb-amt { font-weight: 700; }
+.cal-cell .cal-bill .cb-type { color: var(--muted); font-weight: 400; font-size: .56rem; }
+.cal-legend { display: flex; gap: 16px; margin-top: 10px; font-size: .74rem; color: var(--muted); align-items: center; }
+.cal-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+.cal-legend .dot-bill { background: var(--red-weak); outline: 1px solid var(--red); }
+.cal-legend .dot-today { background: var(--blue-weak); outline: 1px solid var(--blue); }
+/* 日历弹窗里的账单摘要 */
+.bill-detail { font-size: .9rem; }
+.bill-detail .bd-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.bill-detail .bd-row:last-child { border-bottom: none; }
+.bill-detail .bd-label { color: var(--muted); }
+.bill-detail .bd-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+.bill-detail .bd-val.red { color: var(--red); }
+/* 账单合计分组展开 */
+.list-item.collapsible { cursor: pointer; }
+.list-item.collapsible:active { background: #f4f7fb; }
+.list-item.collapsible .arrow {
+  display: inline-block; font-size: .7rem; color: var(--muted);
+  transition: transform .2s; margin-left: 2px;
+}
+.list-item.collapsible.open .arrow { transform: rotate(180deg); }
+.group-detail { padding: 0 0 0 14px; }
+.group-detail .gd-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 9px 4px; border-top: 1px dashed var(--line); font-size: .85rem;
+}
+.group-detail .gd-row .gd-name { color: var(--text); font-weight: 500; }
+.group-detail .gd-row .gd-sub { font-size: .74rem; color: var(--muted); margin-top: 1px; }
+.group-detail .gd-row .gd-amount { color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sync-tip { font-size: .78rem; color: var(--muted); background: var(--blue-weak); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { flex: 1; }
+footer { text-align: center; color: var(--muted); font-size: .74rem; padding: 8px 0 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1><span class="logo">单</span>跑单记账</h1>
+    <div class="date" id="todayText"></div>
+  </div>
+
+  <div class="tabs">
+    <button id="tab-overview" class="active" onclick="switchTab('overview')">概览</button>
+    <button id="tab-wallet" onclick="switchTab('wallet')">钱包</button>
+    <button id="tab-record" onclick="switchTab('record')">记一笔</button>
+    <button id="tab-bills" onclick="switchTab('bills')">账单</button>
+    <button id="tab-history" onclick="switchTab('history')">历史</button>
+    <button id="tab-sync" onclick="switchTab('sync')">同步</button>
+  </div>
+
+  <!-- ===== 概览 ===== -->
+  <div id="page-overview">
+    <div class="card">
+      <h3>统计范围</h3>
+      <div class="type-switch" style="margin-bottom:10px">
+        <button id="fmode-month" class="active income" onclick="setFilterMode('month')">固定月份</button>
+        <button id="fmode-custom" class="expense" onclick="setFilterMode('custom')">自定义日期</button>
+      </div>
+      <div class="form-grid" id="filterMonthWrap">
+        <div>
+          <label for="filterMonth">月份</label>
+          <input type="month" id="filterMonth" onchange="applyFilter()">
+        </div>
+      </div>
+      <div class="form-grid hidden" id="filterCustomWrap">
+        <div>
+          <label for="filterFrom">开始日期</label>
+          <input type="date" id="filterFrom" onchange="applyFilter()">
+        </div>
+        <div>
+          <label for="filterTo">结束日期</label>
+          <input type="date" id="filterTo" onchange="applyFilter()">
+        </div>
+      </div>
+      <div class="li-sub" style="margin-top:8px" id="filterLabel"></div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="label" id="periodBillsLabel">本月账单总计</div>
+        <div class="value red" id="monthTarget">--</div>
+        <div class="sub" id="gapSub"></div>
+      </div>
+      <div class="stat">
+        <div class="label" id="periodIncomeLabel">本月收入</div>
+        <div class="value green" id="monthIncome">--</div>
+        <div class="sub" id="todaySub"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span>本月预算（日常开销控制）</span>
+        <button class="btn ghost sm" onclick="openBudgetModal()">管理预算</button></h3>
+      <div id="budgetOverviewBox"></div>
+    </div>
+
+    <div class="card">
+      <h3>京东众包钱包</h3>
+      <div id="walletOverviewBox"></div>
+    </div>
+
+    <div class="card">
+      <h3>最近要还的账单</h3>
+      <div id="nextBillBox"></div>
+    </div>
+
+    <div class="card">
+      <h3>目标进度（收入 ≥ 账单 X）</h3>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px">
+        <span style="font-size:.82rem; font-weight:600">实际进度<span style="font-weight:400;color:var(--muted)">（不含钱包未提现）</span></span>
+        <span id="progressPct" style="font-size:.82rem; color:var(--muted); font-weight:600"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-note" style="margin-bottom:10px"><span id="progressLeft"></span><span id="progressRight"></span></div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px">
+        <span style="font-size:.82rem; font-weight:600">预计进度<span style="font-weight:400;color:var(--muted)">（含钱包未提现）</span></span>
+        <span id="progressPct2" style="font-size:.82rem; color:var(--muted); font-weight:600"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill proj" id="progressFill2" style="width:0%"></div></div>
+      <div class="progress-note"><span id="progressLeft2"></span><span id="progressRight2"></span></div>
+    </div>
+  </div>
+
+  <!-- ===== 钱包 ===== -->
+  <div id="page-wallet" class="hidden">
+    <div class="card">
+      <h3>钱包操作</h3>
+      <div class="btn-row">
+        <button class="btn" onclick="openWalletBalanceModal()">更新钱包余额</button>
+        <button class="btn ghost" onclick="openWithdrawModal()">从钱包提现</button>
+      </div>
+      <div class="li-sub" style="margin-top:10px" id="walletPrevInfo"></div>
+    </div>
+
+    <div class="card">
+      <h3>余额更新记录</h3>
+      <div id="walletLogList"></div>
+    </div>
+
+    <div class="card">
+      <h3>提现记录</h3>
+      <div id="withdrawList"></div>
+    </div>
+  </div>
+
+  <!-- ===== 记一笔 ===== -->
+  <div id="page-record" class="hidden">
+    <div class="card">
+      <div class="type-switch">
+        <button id="rtype-income" class="active income" onclick="setRecordType('income')">收入</button>
+        <button id="rtype-expense" class="expense" onclick="setRecordType('expense')">支出</button>
+        <button id="rtype-transfer" class="transfer" onclick="setRecordType('transfer')">转账</button>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label for="recDate">日期</label>
+          <input type="date" id="recDate">
+        </div>
+        <div>
+          <label for="recAmount">金额（元）</label>
+          <input type="number" id="recAmount" inputmode="decimal" step="0.01" min="0.01" placeholder="如 156.5">
+        </div>
+        <div class="full hidden" id="recFromWrap">
+          <label for="recFrom">从哪个账户转出</label>
+          <input type="text" id="recFrom" maxlength="12" placeholder="如：微信 / 支付宝 / 银行卡 / 现金">
+        </div>
+        <div class="full hidden" id="recToWrap">
+          <label for="recTo">转入哪个账户</label>
+          <input type="text" id="recTo" maxlength="12" placeholder="如：招联金融 / 银行卡">
+        </div>
+        <div class="full hidden" id="recBudgetWrap">
+          <label for="recBudget">关联预算分类（选填，自动扣减）</label>
+          <select id="recBudget"></select>
+        </div>
+        <div class="full">
+          <label for="recNote">备注（选填）</label>
+          <input type="text" id="recNote" maxlength="50" placeholder="如：中午高峰期、美团+饿了么">
+        </div>
+        <div class="full">
+          <button class="btn full" id="recSubmitBtn" onclick="submitRecord()">保存收入</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>今天的记录</h3>
+      <div id="todayRecords"></div>
+    </div>
+  </div>
+
+  <!-- ===== 账单 ===== -->
+  <div id="page-bills" class="hidden">
+    <div class="card">
+      <h3>
+        <span>账单日历</span>
+        <button class="btn sm" onclick="openBillModal(null, null)">＋ 添加账单</button>
+      </h3>
+      <div class="cal-head">
+        <button class="cal-nav" onclick="calShift(-1)">‹</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="cal-nav" onclick="calShift(1)">›</button>
+      </div>
+      <div class="cal-week">
+        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <span><i class="dot dot-bill"></i>有账单扣款</span>
+        <span><i class="dot dot-today"></i>今天</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>我的账单（按下次扣款排序）</h3>
+      <div id="billList"></div>
+    </div>
+
+    <div class="card">
+      <h3>本月账单合计</h3>
+      <div class="list-item" style="border:none; padding-top:0">
+        <div class="li-main"><div class="li-title">本月全部账单 X</div>
+        <div class="li-sub" id="billSumSub"></div></div>
+        <div class="li-amount red" id="billSumAmount"></div>
+      </div>
+      <div class="list-item collapsible" onclick="toggleGroup('monthlyGroup', this)">
+        <div class="li-main"><div class="li-title">固定账单<span class="arrow">▾</span></div>
+        <div class="li-sub">每月固定扣款的部分</div></div>
+        <div class="li-amount red" id="billMonthlySum"></div>
+      </div>
+      <div id="monthlyGroup" class="group-detail hidden"></div>
+      <div class="list-item collapsible" onclick="toggleGroup('onceGroup', this)">
+        <div class="li-main"><div class="li-title">一次性账单<span class="arrow">▾</span></div>
+        <div class="li-sub">本月扣款的一次性账单</div></div>
+        <div class="li-amount red" id="billOnceSum"></div>
+      </div>
+      <div id="onceGroup" class="group-detail hidden"></div>
+    </div>
+  </div>
+
+  <!-- ===== 历史 ===== -->
+  <div id="page-history" class="hidden">
+    <div class="card">
+      <h3>收支明细（按月汇总）<span id="historySum"></span></h3>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- ===== 同步 ===== -->
+  <div id="page-sync" class="hidden">
+    <div class="card">
+      <h3>云端同步（免费，推荐）</h3>
+      <div class="sync-tip" style="margin-bottom:10px">
+        填入 Supabase 的信息后启用：数据加密存云端，手机电脑自动同步，无需再手动导入导出。<b>不启用则和原来一样只保存在本机浏览器</b>，两种方式随时切换。
+      </div>
+      <div class="form-grid">
+        <div class="full">
+          <label for="cloudUrl">Project URL</label>
+          <input type="text" id="cloudUrl" placeholder="https://xxxxx.supabase.co">
+        </div>
+        <div class="full">
+          <label for="cloudKey">anon public key</label>
+          <input type="text" id="cloudKey" placeholder="很长的 一串，在 Supabase 设置→API 里复制">
+        </div>
+        <div class="full">
+          <label for="cloudPass">同步密码（两台设备填一样的）</label>
+          <input type="password" id="cloudPass" placeholder="用于加密数据，忘记将无法解密">
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn" id="cloudToggleBtn" onclick="toggleCloud()">启用云端</button>
+        <button class="btn ghost" onclick="cloudSyncNow()">立即同步</button>
+      </div>
+      <div class="li-sub" style="margin-top:8px" id="cloudStatus">未启用云端，数据仅保存在本机</div>
+    </div>
+
+    <div class="card">
+      <h3>云端数据迁移（升级到按行同步）</h3>
+      <div class="sync-tip">
+        本次升级把云端的存储方式从「整包」改为「按行」，更安全（两端同时记账不再互相覆盖）。如果你云端有旧数据，需要点下面的按钮迁移一次。新用户或云端无数据可跳过。
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="cloudMigrate()">迁移旧云端数据</button>
+        <button class="btn ghost" onclick="cloudPushAll()">把本机数据全量上传</button>
+      </div>
+      <div class="li-sub" style="margin-top:8px" id="migrateStatus">如果同步后数据为空，先点「把本机数据全量上传」即可</div>
+    </div>
+
+    <div class="card">
+      <h3>手动备份（备用）</h3>
+      <div class="sync-tip">
+        云端同步之外的保底手段：导出同步码或备份文件，在没网或云端异常时也能迁移数据。
+      </div>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn" onclick="exportCopy()">复制同步码</button>
+        <button class="btn ghost" onclick="exportDownload()">下载备份文件</button>
+      </div>
+      <textarea id="exportBox" readonly placeholder="点击「复制同步码」后，这里会显示同步码，也可手动长按复制"></textarea>
+    </div>
+
+    <div class="card">
+      <h3>导入数据（从另一台设备同步过来）</h3>
+      <textarea id="importBox" placeholder="把另一台设备复制的同步码粘贴到这里"></textarea>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn" onclick="importData(false)">合并导入（保留两边记录）</button>
+        <button class="btn danger" onclick="importData(true)">覆盖导入（清空后替换）</button>
+      </div>
+      <div style="margin-top:10px">
+        <label>或者选择备份文件</label>
+        <input type="file" id="importFile" accept=".json,.txt" onchange="importFileChange(this)">
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>当前数据</h3>
+      <div id="syncStat"></div>
+    </div>
+  </div>
+
+  <footer id="appFooter">建议收藏本页到手机桌面 · 每天记一笔</footer>
+</div>
+<div id="toast"></div>
+
+<!-- 账单操作弹窗（添加/修改表单、日某天账单列表、账单详情） -->
+<div id="editModalMask" class="modal-mask hidden" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal" id="editModalBody">
+    <h4><span class="m-icon">改</span><span id="eModalTitle">修改账单</span></h4>
+    <div class="form-grid">
+      <div class="full">
+        <label for="eBillName">账单名称</label>
+        <input type="text" id="eBillName" maxlength="20" placeholder="如：招联金融还贷">
+      </div>
+      <div>
+        <label for="eBillAmount">金额（元）</label>
+        <input type="number" id="eBillAmount" inputmode="decimal" step="0.01" min="0" placeholder="如 1200">
+      </div>
+      <div>
+        <label for="eBillType">账单类型</label>
+        <select id="eBillType" onchange="onEBillTypeChange()">
+          <option value="monthly">每月固定</option>
+          <option value="once">一次性</option>
+        </select>
+      </div>
+      <div id="eBillDayWrap">
+        <label for="eBillDay">每月扣款日</label>
+        <select id="eBillDay"></select>
+      </div>
+      <div id="eBillDateWrap" class="hidden">
+        <label for="eBillDate">扣款日期</label>
+        <input type="date" id="eBillDate">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn ghost" onclick="closeEditModal()">取消</button>
+      <button class="btn" onclick="saveBillEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 钱包操作弹窗（更新余额 / 提现） -->
+<div id="walletModalMask" class="modal-mask hidden" onclick="if(event.target===this)closeWalletModal()">
+  <div class="modal" id="walletModalBody"></div>
+</div>
+
+<!-- 预算管理弹窗 -->
+<div id="budgetModalMask" class="modal-mask hidden" onclick="if(event.target===this)closeBudgetModal()">
+  <div class="modal" id="budgetModalBody"></div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div id="confirmModalMask" class="modal-mask hidden" onclick="if(event.target===this)closeConfirmModal()">
+  <div class="modal">
+    <h4 class="danger"><span class="m-icon">!</span>删除确认</h4>
+    <div class="msg" id="confirmMsg"></div>
+    <div class="modal-btns">
+      <button class="btn ghost" onclick="closeConfirmModal()">取消</button>
+      <button class="btn danger-solid" id="confirmOkBtn" onclick="confirmOk()">确定删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================= 本地数据层 =================
+var STORE_KEY = 'paodan_data_v3';
+var state = { bills: [], records: [], walletLogs: [], withdraws: [], budgets: [] };
+
+function migrateOld(d) {
+  return {
+    bills: d.bills || [],
+    records: d.records || incomesToRecords(d.incomes),
+    walletLogs: d.walletLogs || [],
+    withdraws: d.withdraws || [],
+    budgets: d.budgets || []
+  };
+}
+// 旧版 v1 收入记录转统一格式
+function incomesToRecords(incomes) {
+  return (incomes || []).map(function (it) {
+    return { id: it.id, type: 'income', date: it.income_date, amount: it.amount, note: it.note || '', created_at: it.created_at };
+  });
+}
+
+function dbRead() {
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (raw) return migrateOld(JSON.parse(raw));
+    var v2 = localStorage.getItem('paodan_data_v2');
+    if (v2) return migrateOld(JSON.parse(v2));
+    var v1 = localStorage.getItem('paodan_data_v1');
+    if (v1) return migrateOld(JSON.parse(v1));
+    return { bills: [], records: [], walletLogs: [], withdraws: [], budgets: [] };
+  } catch (e) {
+    return { bills: [], records: [], walletLogs: [], withdraws: [], budgets: [] };
+  }
+}
+function dbWrite() {
+  try {
+    var doc = {
+      bills: state.bills, records: state.records,
+      walletLogs: state.walletLogs, withdraws: state.withdraws,
+      budgets: state.budgets,
+      _ts: new Date().toISOString()
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify(doc));
+    scheduleCloudPush();
+    return true;
+  } catch (e) {
+    toast('保存失败：浏览器存储空间不足或被禁用');
+    return false;
+  }
+}
+function newId() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
+
+// ================= 云端同步（Supabase，可选） =================
+var CLOUD_CFG_KEY = 'paodan_cloud_v1';
+
+function cloudCfg() {
+  try { return JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+function cloudSaveCfg(c) { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c)); }
+function setCloudStatus(t) { var el = $('cloudStatus'); if (el) el.textContent = t; }
+
+// --- 加密工具（Web Crypto：PBKDF2 派生密钥 + AES-GCM 加密） ---
+function b64(buf) {
+  var u = new Uint8Array(buf), s = '';
+  for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+  return btoa(s);
+}
+function unb64(str) {
+  var s = atob(str), u = new Uint8Array(s.length);
+  for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+  return u;
+}
+function hasWebCrypto() {
+  return typeof crypto !== 'undefined' && crypto.subtle && typeof btoa !== 'undefined';
+}
+async function deriveAesKey(pass) {
+  var enc = new TextEncoder();
+  var base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('paodan-cloud-v1'), iterations: 100000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function cloudEncrypt(pass, text) {
+  var key = await deriveAesKey(pass);
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(text));
+  return b64(iv) + '.' + b64(ct);
+}
+async function cloudDecrypt(pass, text) {
+  var parts = String(text).split('.');
+  var key = await deriveAesKey(pass);
+  var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(parts[0]) }, key, unb64(parts[1]));
+  return new TextDecoder().decode(pt);
+}
+// 云端行 id：由密码派生（同一密码在所有设备上指向同一行）
+async function cloudRowId(pass) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('paodan-row:' + pass));
+  var u = new Uint8Array(buf), s = '';
+  for (var i = 0; i < u.length; i++) s += u[i].toString(16).padStart(2, '0');
+  return s;
+}
+
+// ================= 按行同步（V25） =================
+// 云端表 sync_rows：每条记录一行，行id = cloudRowId(密码)前8位 + ':' + 记录id
+// 每行独立 LWW：谁修改时间新用谁的；删除走软删除标记
+// 本地辅助：每行的时间戳存在 state._rowTs（rid→ts 映射），随数据一起存 localStorage
+
+var CLOUD_KINDS = [
+  { key: 'records', prop: 'records' },
+  { key: 'bills', prop: 'bills' },
+  { key: 'budgets', prop: 'budgets' },
+  { key: 'wallet_logs', prop: 'walletLogs' },
+  { key: 'withdraws', prop: 'withdraws' }
+];
+
+function rowTsMap() {
+  if (!state._rowTs) state._rowTs = {};
+  return state._rowTs;
+}
+function rowKeyPrefix() {
+  // 同步会话内缓存密码哈希前缀
+  if (rowKeyPrefix._v) return Promise.resolve(rowKeyPrefix._v);
+  var cfg = cloudCfg();
+  return cloudRowId(cfg.pass).then(function (h) {
+    rowKeyPrefix._v = h.slice(0, 8);
+    return rowKeyPrefix._v;
+  });
+}
+function fullRid(prefix, id) { return prefix + ':' + id; }
+
+// 保存到本地时带上行时间戳
+function dbWrite() {
+  try {
+    var doc = {
+      bills: state.bills, records: state.records,
+      walletLogs: state.walletLogs, withdraws: state.withdraws,
+      budgets: state.budgets, _rowTs: rowTsMap(),
+      _ts: new Date().toISOString()
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify(doc));
+    scheduleCloudPush();
+    return true;
+  } catch (e) {
+    toast('保存失败：浏览器存储空间不足或被禁用');
+    return false;
+  }
+}
+
+// --- 推送：只推有变化的行（防抖 1.5 秒） ---
+var cloudPushTimer = null;
+function scheduleCloudPush() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) return;
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(cloudPush, 1500);
+}
+
+async function cloudPush() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) return;
+  try {
+    var prefix = await rowKeyPrefix();
+    var now = new Date().toISOString();
+    var rows = [];
+    var tsMap = rowTsMap();
+    CLOUD_KINDS.forEach(function (k) {
+      (state[k.prop] || []).forEach(function (item) {
+        var rid = fullRid(prefix, item.id);
+        var myTs = (item._ts) || tsMap[rid] || '';
+        // 本次会话未推送过、或本地比已知云端时间新 → 推
+        if (!tsMap[rid] || tsMap[rid] !== myTs || tsMap[rid + ':dirty']) {
+          rows.push({ rid: rid, kind: k.key, payload: '', ts: now, deleted: false, _plain: item });
+          item._ts = now;
+        }
+      });
+    });
+    // 软删除：内存里的已删标记（deleteFromState 记录）
+    var tombstones = state._tombstones || {};
+    Object.keys(tombstones).forEach(function (rid) {
+      if (tombstones[rid] === 'pending') {
+        rows.push({ rid: rid, kind: '', payload: '', ts: now, deleted: true });
+        tombstones[rid] = now;
+      }
+    });
+    if (!rows.length) { setCloudStatus('云端与本机数据一致 · ' + new Date().toLocaleTimeString()); return; }
+
+    // 逐行加密 + 批量 upsert
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      r.payload = r.deleted ? '' : await cloudEncrypt(cfg.pass, JSON.stringify(r._plain));
+      delete r._plain;
+      var res = await fetch(cfg.url + '/rest/v1/sync_rows?on_conflict=rid', {
+        method: 'POST',
+        headers: {
+          'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(r)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      tsMap[r.rid] = r.ts;
+    }
+    dbWriteLocalOnly();
+    setCloudStatus('已同步到云端（' + rows.length + ' 项）· ' + new Date().toLocaleTimeString());
+  } catch (e) {
+    // 失败时把已推送的行标记 dirty，下次重推
+    setCloudStatus('云端推送失败：' + e.message + '（数据仍保存在本机）');
+  }
+}
+
+// 只写本地不触发推送（避免循环）
+function dbWriteLocalOnly() {
+  try {
+    var doc = {
+      bills: state.bills, records: state.records,
+      walletLogs: state.walletLogs, withdraws: state.withdraws,
+      budgets: state.budgets, _rowTs: rowTsMap(),
+      _tombstones: state._tombstones || {},
+      _ts: new Date().toISOString()
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify(doc));
+  } catch (e) { /* 静默 */ }
+}
+
+// --- 删除时记录墓碑（软删除） ---
+function markDeleted(id) {
+  if (!state._tombstones) state._tombstones = {};
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) return;
+  rowKeyPrefix().then(function (prefix) {
+    state._tombstones[fullRid(prefix, id)] = 'pending';
+    scheduleCloudPush();
+  });
+}
+
+// --- 拉取：逐行比较合并（保留未知字段：payload 解开是完整对象，本机未知字段原样透传） ---
+async function cloudPull() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) return;
+  try {
+    var prefix = await rowKeyPrefix();
+    var sinceTs = localStorage.getItem('paodan_sync_since') || '';
+    // 拉取该密码命名空间下的所有行（单用户数据量小，全量拉逐行比时间即可）
+    var res = await fetch(cfg.url + '/rest/v1/sync_rows?select=rid,kind,payload,ts,deleted&limit=5000', {
+      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var cloudRows = await res.json();
+    var tsMap = rowTsMap();
+    var changed = 0, deletedCnt = 0;
+
+    // 云端行按 id 索引
+    var cloudByRid = {};
+    cloudRows.forEach(function (r) { cloudByRid[r.rid] = r; });
+
+    // 1) 云端有、本机没有或云端新 → 下载覆盖本机（或执行删除）
+    cloudRows.forEach(function (r) {
+      var shortId = r.rid.indexOf(':') >= 0 ? r.rid.split(':')[1] : r.rid;
+      var numId = parseInt(shortId, 10);
+      var localTs = tsMap[r.rid] || '';
+      if (r.ts > localTs) {
+        if (r.deleted) {
+          // 软删除：从对应集合移除
+          removeFromStateById(numId);
+          if (localTs) deletedCnt++; // 本地本来有才计数
+          tsMap[r.rid] = r.ts;
+          if (state._tombstones) delete state._tombstones[r.rid];
+        } else {
+          var item = JSON.parse(cloudDecrypt._last = r.payload ? '' : '');
+          // 解密是异步的，稍后统一处理（见下方 async 循环）
+          pullQueue.push(r);
+        }
+      }
+    });
+    // 异步解密下载的行
+    for (var qi = 0; qi < pullQueue.length; qi++) {
+      var r2 = pullQueue[qi];
+      var text = await cloudDecrypt(cfg.pass, r2.payload);
+      var item = JSON.parse(text);
+      delete item._ts; // 云端管理时间戳，本地不存
+      var kind = r2.kind;
+      var propMap = { records: 'records', bills: 'bills', budgets: 'budgets', wallet_logs: 'walletLogs', withdraws: 'withdraws' };
+      var arr = state[propMap[kind]];
+      if (arr) {
+        var idx = arr.findIndex(function (x) { return x.id === item.id; });
+        if (idx >= 0) arr[idx] = item; else arr.push(item);
+        changed++;
+      }
+      tsMap[r2.rid] = r2.ts;
+    }
+    pullQueue.length = 0;
+
+    // 2) 本机有、云端没有 → 上传（本机新数据）
+    var toPush = [];
+    CLOUD_KINDS.forEach(function (k) {
+      (state[k.prop] || []).forEach(function (item) {
+        var rid = fullRid(prefix, item.id);
+        if (!cloudByRid[rid]) toPush.push(item);
+      });
+    });
+    if (toPush.length) {
+      for (var pi = 0; pi < toPush.length; pi++) {
+        toPush[pi]._ts = new Date().toISOString();
+      }
+      scheduleCloudPush();
+    }
+
+    if (changed || deletedCnt || toPush.length) {
+      dbWriteLocalOnly();
+      renderOverview(); renderBills(); renderTodayRecords();
+      if (typeof renderHistory === 'function' && !$('page-history').classList.contains('hidden')) renderHistory();
+      if (typeof renderWalletPage === 'function' && !$('page-wallet').classList.contains('hidden')) renderWalletPage();
+      if (typeof renderSyncStat === 'function' && !$('page-sync').classList.contains('hidden')) renderSyncStat();
+      setCloudStatus('已从云端同步：更新 ' + changed + ' 项、删除 ' + deletedCnt + ' 项、上传 ' + toPush.length + ' 项 · ' + new Date().toLocaleTimeString());
+    } else {
+      setCloudStatus('云端与本机数据一致 · ' + new Date().toLocaleTimeString());
+    }
+  } catch (e) {
+    setCloudStatus('云端拉取失败：' + e.message + '（继续使用本机数据）');
+  }
+}
+var pullQueue = [];
+
+function removeFromStateById(id) {
+  var found = false;
+  ['bills', 'records', 'walletLogs', 'withdraws', 'budgets'].forEach(function (prop) {
+    var before = state[prop].length;
+    state[prop] = state[prop].filter(function (x) { return x.id !== id; });
+    if (state[prop].length !== before) found = true;
+  });
+  return found;
+}
+
+async function cloudSyncNow() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) { toast('请先启用云端同步'); return; }
+  setCloudStatus('正在同步…');
+  await cloudPull();
+  await cloudPush();
+}
+
+// --- 迁移：读旧表 app_data 整包 → 拆成本机数据 → 全量上传到 sync_rows ---
+async function cloudMigrate() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) { toast('请先启用云端同步'); return; }
+  var st = $('migrateStatus');
+  st.textContent = '正在读取旧云端数据…';
+  try {
+    var id = await cloudRowId(cfg.pass);
+    var res = await fetch(cfg.url + '/rest/v1/app_data?id=eq.' + id + '&select=payload', {
+      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var rows = await res.json();
+    if (!rows.length) {
+      st.textContent = '云端没有旧数据，无需迁移。如本机有数据，点「把本机数据全量上传」即可。';
+      return;
+    }
+    var text = await cloudDecrypt(cfg.pass, rows[0].payload);
+    var d = JSON.parse(text);
+    // 合并到本机（云端为准，覆盖同 id）
+    ['bills', 'records', 'walletLogs', 'withdraws', 'budgets'].forEach(function (prop) {
+      var cloudArr = d[prop] || [];
+      cloudArr.forEach(function (item) {
+        var idx = state[prop].findIndex(function (x) { return x.id === item.id; });
+        if (idx >= 0) state[prop][idx] = item; else state[prop].push(item);
+      });
+    });
+    dbWriteLocalOnly();
+    st.textContent = '旧数据已读入本机（' + ((d.bills||[]).length + (d.records||[]).length + (d.walletLogs||[]).length + (d.withdraws||[]).length + (d.budgets||[]).length) + ' 条），正在上传到新表…';
+    // 清空行时间戳，强制全量推送
+    state._rowTs = {};
+    await cloudPush();
+    st.textContent = '迁移完成！云端已使用新的按行存储。旧表数据保留未动。';
+    renderOverview(); renderBills(); renderTodayRecords();
+  } catch (e) {
+    st.textContent = '迁移失败：' + e.message;
+  }
+}
+
+// --- 全量上传：清空行时间戳后推送本机全部数据 ---
+async function cloudPushAll() {
+  var cfg = cloudCfg();
+  if (!cfg || !cfg.enabled) { toast('请先启用云端同步'); return; }
+  var st = $('migrateStatus');
+  st.textContent = '正在全量上传本机数据…';
+  state._rowTs = {};
+  state._tombstones = {};
+  await cloudPush();
+  st.textContent = '全量上传完成。其他设备点「立即同步」即可拉取。';
+}
+
+// --- 启用 / 停用 ---
+async function toggleCloud() {
+  var cfg = cloudCfg();
+  if (cfg && cfg.enabled) {
+    cfg.enabled = false;
+    cloudSaveCfg(cfg);
+    $('cloudToggleBtn').textContent = '启用云端';
+    setCloudStatus('云端同步已停用，数据继续保存在本机浏览器');
+    return;
+  }
+  if (!hasWebCrypto()) { toast('当前浏览器不支持加密功能，无法启用云端'); return; }
+  var url = ($('cloudUrl').value || '').trim().replace(/\/+$/, '');
+  var key = ($('cloudKey').value || '').trim();
+  var pass = $('cloudPass').value || '';
+  if (!/^https:\/\/.+/.test(url)) { toast('请输入有效的 Project URL（https 开头）'); return; }
+  if (!key || key.length < 20) { toast('请输入完整的 anon key'); return; }
+  if (pass.length < 4) { toast('同步密码至少 4 位'); return; }
+  cloudSaveCfg({ url: url, key: key, pass: pass, enabled: true });
+  $('cloudToggleBtn').textContent = '停用云端';
+  setCloudStatus('已启用，正在同步…');
+  await cloudPull();
+  cloudPush();
+}
+
+// 打开同步页时回填配置与状态
+function renderCloudCfg() {
+  var cfg = cloudCfg();
+  if (cfg && cfg.url) {
+    $('cloudUrl').value = cfg.url;
+    $('cloudKey').value = cfg.key || '';
+    $('cloudToggleBtn').textContent = cfg.enabled ? '停用云端' : '启用云端';
+    setCloudStatus(cfg.enabled ? '云端同步已启用' : '云端同步已停用，数据仅保存在本机');
+  }
+}
+
+// ================= 工具 =================
+function $(id) { return document.getElementById(id); }
+function fmt(n) {
+  if (n == null || isNaN(n)) return '--';
+  n = Number(n);
+  return (Math.round(n * 100) / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+// 固定显示两位小数（金额、日均跑单等精确数值）
+function fmt2(n) {
+  if (n == null || isNaN(n)) return '--';
+  return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// 提现生成的收入记录标记（避免重复计入跑单走势）
+function isWdRecord(r) { return r.wd || String(r.note || '').indexOf('钱包提现') === 0; }
+// 固定账单是否在指定年月已结束（end_month 为 'YYYY-MM'）
+function billEndedFor(b, y, m) {
+  if (!b || !b.end_month) return false;
+  var p = String(b.end_month).split('-');
+  return (y * 12 + m) > (+p[0] * 12 + (+p[1] - 1));
+}
+
+// ================= 概览筛选（固定月份 / 自定义日期） =================
+var viewFilter = { mode: 'month', month: localTodayStr().slice(0, 7), from: localTodayStr(), to: localTodayStr() };
+
+function setFilterMode(mode) {
+  viewFilter.mode = mode;
+  ['month', 'custom'].forEach(function (m) {
+    var btn = $('fmode-' + m);
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  $('filterMonthWrap').classList.toggle('hidden', mode !== 'month');
+  $('filterCustomWrap').classList.toggle('hidden', mode !== 'custom');
+  renderOverview();
+}
+
+function applyFilter() {
+  if (viewFilter.mode === 'month') {
+    var v = $('filterMonth').value;
+    if (/^\d{4}-\d{2}$/.test(v)) viewFilter.month = v;
+  } else {
+    var f = $('filterFrom').value, t = $('filterTo').value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) viewFilter.from = f;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) viewFilter.to = t;
+    if (viewFilter.from > viewFilter.to) toast('开始日期不能晚于结束日期');
+  }
+  renderOverview();
+}
+
+// 按当前筛选范围计算：账单总计、收入、缺口、日均
+function computePeriodStats() {
+  var from, to, label, isMonth = viewFilter.mode === 'month';
+  if (isMonth) {
+    var y = parseInt(viewFilter.month.slice(0, 4), 10), m = parseInt(viewFilter.month.slice(5, 7), 10);
+    from = viewFilter.month + '-01';
+    to = viewFilter.month + '-' + String(daysInMonth(y, m)).padStart(2, '0');
+    label = y + '年' + m + '月';
+  } else {
+    from = viewFilter.from; to = viewFilter.to;
+    label = from + ' ~ ' + to;
+  }
+  // 期间收入（含提现到账）
+  var income = 0;
+  state.records.forEach(function (r) {
+    if (r.type === 'income' && r.date >= from && r.date <= to) income += Number(r.amount) || 0;
+  });
+  // 期间账单：一次性按扣款日落在范围内；固定按每月扣款日落在范围内计次（过了结束月份不计）
+  var billsTotal = 0;
+  state.bills.forEach(function (b) {
+    var amt = Number(b.amount) || 0;
+    if (isOnce(b)) {
+      var ds = String(b.due_date || '');
+      if (ds >= from && ds <= to) billsTotal += amt;
+    } else {
+      var y1 = +from.slice(0, 4), m1 = +from.slice(5, 7) - 1;
+      var y2 = +to.slice(0, 4), m2 = +to.slice(5, 7) - 1;
+      for (var yy = y1; yy <= y2; yy++) {
+        for (var mm = (yy === y1 ? m1 : 0); mm <= (yy === y2 ? m2 : 11); mm++) {
+          if (billEndedFor(b, yy, mm)) continue;
+          var day = Math.min(b.day_of_month, daysInMonth(yy, mm + 1));
+          var dstr = yy + '-' + String(mm + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+          if (dstr >= from && dstr <= to) billsTotal += amt;
+        }
+      }
+    }
+  });
+  // 剩余天数：从今天（或范围起点较晚者）到范围结束
+  var todayStr = localTodayStr();
+  var daysLeft = null;
+  if (to >= todayStr) {
+    var startRef = from > todayStr ? from : todayStr;
+    daysLeft = Math.round((parseISO(to) - parseISO(startRef)) / 86400000) + 1;
+  }
+  var gap = Math.max(0, billsTotal - income);
+  var over = Math.max(0, income - billsTotal);
+  return {
+    isMonth: isMonth, label: label, from: from, to: to,
+    billsTotal: billsTotal, income: income, gap: gap, over: over,
+    daysLeft: daysLeft, dailyNeed: daysLeft ? gap / daysLeft : null,
+    billsLabel: isMonth ? (label + '账单总计') : '期间账单总计',
+    incomeLabel: isMonth ? (label + '收入') : '期间收入'
+  };
+}
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+}
+function localTodayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function escapeAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+function typeLabel(t) { return t === 'income' ? '收入' : (t === 'expense' ? '支出' : '转账'); }
+
+// ================= 页面切换 =================
+function switchTab(name) {
+  ['overview', 'wallet', 'record', 'bills', 'history', 'sync'].forEach(function (t) {
+    $('page-' + t).classList.toggle('hidden', t !== name);
+    $('tab-' + t).classList.toggle('active', t === name);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'sync') { renderSyncStat(); renderCloudCfg(); cloudPull(); }
+  if (name === 'record') renderTodayRecords();
+  if (name === 'wallet') renderWalletPage();
+  if (name === 'bills') renderCalendar();
+}
+
+// ================= 数据加载 =================
+function loadAll() {
+  var d = dbRead();
+  state.bills = d.bills;
+  state.records = d.records;
+  state.walletLogs = d.walletLogs;
+  state.withdraws = d.withdraws;
+  state.budgets = d.budgets;
+  renderOverview();
+  renderBills();
+  renderTodayRecords();
+}
+
+// ================= 业务计算 =================
+function monthOf(dateStr) { return dateStr.slice(0, 7); }
+function isOnce(b) { return b && b.type === 'once'; }
+function parseISO(s) {
+  var p = String(s || '').split('-');
+  return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+}
+
+function nextDueDate(bill, today) {
+  var y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  var day = Math.min(bill.day_of_month, daysInMonth(y, m + 1));
+  var due = new Date(y, m, day);
+  if (due < new Date(y, m, d)) {
+    var nm = m + 1, ny = y;
+    if (nm > 11) { nm = 0; ny++; }
+    day = Math.min(bill.day_of_month, daysInMonth(ny, nm + 1));
+    due = new Date(ny, nm, day);
+  }
+  return due;
+}
+
+function computeStats() {
+  var now = new Date();
+  var todayStr = localTodayStr();
+  var curMonth = todayStr.slice(0, 7);
+  var dim = daysInMonth(now.getFullYear(), now.getMonth() + 1);
+
+  var todayIncome = 0, todayExpense = 0;
+  var monthIncome = 0, monthExpense = 0;
+  var allIncome = 0, allExpense = 0;
+  var byDay = {};
+  state.records.forEach(function (r) {
+    var amt = Number(r.amount) || 0;
+    if (r.type === 'transfer') return; // 转账不影响收支
+    if (r.type === 'income') {
+      allIncome += amt;
+      if (r.date === todayStr) todayIncome += amt;
+      if (monthOf(r.date) === curMonth) {
+        monthIncome += amt;
+        var dd = parseInt(r.date.slice(8), 10);
+        byDay[dd] = (byDay[dd] || 0) + amt;
+      }
+    } else if (r.type === 'expense') {
+      allExpense += amt;
+      if (r.date === todayStr) todayExpense += amt;
+      if (monthOf(r.date) === curMonth) monthExpense += amt;
+    }
+  });
+  var balance = allIncome - allExpense;
+
+  // 钱包：最新余额与实时预计总收入（已提现收入 + 钱包余额）
+  var walletLogsSorted = state.walletLogs.slice().sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return a.created_at < b.created_at ? -1 : 1;
+  });
+  var latestWallet = walletLogsSorted.length ? walletLogsSorted[walletLogsSorted.length - 1] : null;
+  var walletBalance = latestWallet ? (Number(latestWallet.balance) || 0) : 0;
+  var projectedIncome = allIncome + walletBalance;
+  // 实时预计总余额 = 已提现收入 + 钱包余额 - 累计支出
+  var projectedBalance = projectedIncome - allExpense;
+  // 钱包当日增量（今天最后一次更新 - 今天之前最后一次更新）
+  var lastBeforeToday = null, lastToday = null;
+  walletLogsSorted.forEach(function (w) {
+    if (w.date === todayStr) lastToday = w; else lastBeforeToday = w;
+  });
+  var walletTodayDelta = null;
+  if (lastToday) {
+    walletTodayDelta = (Number(lastToday.balance) || 0) - (lastBeforeToday ? (Number(lastBeforeToday.balance) || 0) : 0);
+  }
+
+  // ===== 每日实际跑单收入（走势图口径）=====
+  // 每日跑单 = 手动收入（不含提现生成的）+ 当日钱包增量 + 当日提现毛额
+  var runByDay = {};
+  state.records.forEach(function (r) {
+    if (r.type !== 'income' || isWdRecord(r)) return;
+    if (monthOf(r.date) === curMonth) {
+      var d1 = parseInt(r.date.slice(8), 10);
+      runByDay[d1] = (runByDay[d1] || 0) + (Number(r.amount) || 0);
+    }
+  });
+  // 每日最后一次余额
+  var lastBalByDate = {};
+  walletLogsSorted.forEach(function (w) { lastBalByDate[w.date] = Number(w.balance) || 0; });
+  var balDates = Object.keys(lastBalByDate).sort();
+  balDates.forEach(function (dt, i) {
+    if (i === 0) return; // 首条录入无法知道之前余额，跳过
+    var delta = lastBalByDate[dt] - lastBalByDate[balDates[i - 1]];
+    if (monthOf(dt) === curMonth) {
+      var d2 = parseInt(dt.slice(8), 10);
+      runByDay[d2] = (runByDay[d2] || 0) + delta;
+    }
+  });
+  // 当日提现毛额（提现让余额减少，但也是当天跑出来的钱）
+  state.withdraws.forEach(function (w) {
+    if (monthOf(w.date) === curMonth) {
+      var d3 = parseInt(w.date.slice(8), 10);
+      runByDay[d3] = (runByDay[d3] || 0) + (Number(w.amount) || 0);
+    }
+  });
+  var todayRun = runByDay[now.getDate()] || 0;
+  var monthRun = 0;
+  Object.keys(runByDay).forEach(function (k) { monthRun += runByDay[k]; });
+
+  // 本月账单合计：每月账单计入（过了结束月份的不计）；一次性只在扣款当月计入
+  var target = 0, monthlySum = 0, onceSum = 0;
+  state.bills.forEach(function (b) {
+    if (isOnce(b)) {
+      var a = monthOf(b.due_date || '') === curMonth ? (Number(b.amount) || 0) : 0;
+      onceSum += a;
+      target += a;
+    } else {
+      if (billEndedFor(b, now.getFullYear(), now.getMonth())) return;
+      monthlySum += Number(b.amount) || 0;
+      target += Number(b.amount) || 0;
+    }
+  });
+  var gap = Math.max(0, target - monthIncome);
+  var over = Math.max(0, monthIncome - target);
+  var daysLeft = dim - now.getDate() + 1; // 含今天
+  var dailyNeed = daysLeft > 0 ? gap / daysLeft : gap;
+
+  // 倒计时 + 每笔账单结清所需的日均跑单额（累计口径）
+  var today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var billsWithDue = [];
+  var expiredBills = [];
+  var finishedBills = []; // 固定账单已过最后一期
+  state.bills.forEach(function (b) {
+    var due, daysTo;
+    if (isOnce(b)) {
+      due = parseISO(b.due_date);
+      daysTo = Math.round((due - today0) / 86400000);
+      if (daysTo < 0) { expiredBills.push({ bill: b, due: due, daysTo: daysTo }); return; }
+    } else {
+      due = nextDueDate(b, now);
+      daysTo = Math.round((due - today0) / 86400000);
+      // 下一期已超过结束月份 → 已结清
+      if (billEndedFor(b, due.getFullYear(), due.getMonth())) {
+        finishedBills.push({ bill: b, due: due, daysTo: daysTo });
+        return;
+      }
+    }
+    billsWithDue.push({ bill: b, due: due, daysTo: daysTo, amount: Number(b.amount) || 0 });
+  });
+  billsWithDue.sort(function (a, b) { return a.daysTo - b.daysTo; });
+  expiredBills.sort(function (a, b) { return b.daysTo - a.daysTo; });
+  // 累计计算：到该账单日为止，需结清的账单总额 = 之前所有账单 + 本笔
+  // 实际口径用可用资金（收入-支出）；预计口径再算上钱包未提现
+  var projFund = balance + walletBalance; // 可用资金 + 钱包未提现
+  var cum = 0;
+  billsWithDue.forEach(function (n) {
+    cum += n.amount;
+    n.cumAmount = cum;
+    n.stillNeed = Math.max(0, cum - balance);
+    n.stillNeedProj = Math.max(0, cum - projFund);
+    n.daily = n.stillNeed / Math.max(1, n.daysTo);
+    n.dailyProj = n.stillNeedProj / Math.max(1, n.daysTo);
+  });
+
+  return {
+    now: now, todayStr: todayStr, curMonth: curMonth, dim: dim,
+    todayIncome: todayIncome, todayExpense: todayExpense,
+    allIncome: allIncome, allExpense: allExpense,
+    monthIncome: monthIncome, monthExpense: monthExpense, byDay: byDay,
+    balance: balance, target: target, gap: gap, over: over,
+    monthlySum: monthlySum, onceSum: onceSum,
+    daysLeft: daysLeft, dailyNeed: dailyNeed,
+    walletBalance: walletBalance, projectedIncome: projectedIncome,
+    projectedBalance: projectedBalance,
+    latestWallet: latestWallet, walletTodayDelta: walletTodayDelta,
+    walletLogsSorted: walletLogsSorted,
+    runByDay: runByDay, todayRun: todayRun, monthRun: monthRun,
+    billsWithDue: billsWithDue, expiredBills: expiredBills, finishedBills: finishedBills
+  };
+}
+
+// ================= 概览渲染 =================
+function renderOverview() {
+  var s = computeStats();
+  var p = computePeriodStats();
+  var week = ['日', '一', '二', '三', '四', '五', '六'];
+  $('todayText').textContent = (s.now.getMonth() + 1) + '月' + s.now.getDate() + '日 星期' + week[s.now.getDay()];
+  $('filterLabel').textContent = '当前统计：' + p.label + (p.daysLeft != null ? '（剩 ' + p.daysLeft + ' 天）' : '（该范围已结束）');
+
+  // 账单总计 + 收入（按筛选范围）
+  $('periodBillsLabel').textContent = p.billsLabel;
+  $('monthTarget').textContent = '¥' + fmt2(p.billsTotal);
+  $('gapSub').textContent = !state.bills.length ? '请到「账单」页添加'
+    : (p.over > 0 ? '已超额 ¥' + fmt2(p.over) : '还差 ¥' + fmt2(p.gap)) +
+      (p.gap > 0 && p.dailyNeed != null ? '，日均 ¥' + fmt2(p.dailyNeed) : '');
+
+  $('periodIncomeLabel').textContent = p.incomeLabel;
+  $('monthIncome').textContent = '¥' + fmt2(p.income);
+  $('todaySub').textContent = '今日跑单 ¥' + fmt2(s.todayRun) + (s.todayExpense > 0 ? ' · 今日支出 ¥' + fmt2(s.todayExpense) : '');
+
+  // 预算卡片（跟随筛选范围）
+  renderBudgetOverview(p);
+
+  // 钱包卡片（三列：钱包余额 / 实时预计总余额 / 可用资金）
+  var wBox = $('walletOverviewBox');
+  var deltaLine = '';
+  if (s.walletTodayDelta != null) {
+    deltaLine = s.walletTodayDelta >= 0 ? ' · 今日 +' + fmt2(s.walletTodayDelta) : ' · 今日 ' + fmt2(s.walletTodayDelta);
+  }
+  var walletInfo = s.latestWallet
+    ? (s.latestWallet.date === s.todayStr ? '今天更新' : s.latestWallet.date + ' 更新') + deltaLine
+    : '未录入，去「钱包」页更新';
+  wBox.innerHTML =
+    '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center">' +
+      '<div><div style="font-size:.72rem;color:var(--muted)">钱包余额（未提现）</div>' +
+      '<div style="font-size:1.12rem;font-weight:700;color:var(--orange)">' + (s.latestWallet ? '¥' + fmt2(s.walletBalance) : '未录入') + '</div>' +
+      '<div style="font-size:.66rem;color:var(--muted)">' + walletInfo + '</div></div>' +
+      '<div><div style="font-size:.72rem;color:var(--muted)">实时预计总余额</div>' +
+      '<div style="font-size:1.12rem;font-weight:700;color:' + (s.projectedBalance >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (s.projectedBalance >= 0 ? '' : '-') + '¥' + fmt2(Math.abs(s.projectedBalance)) + '</div>' +
+      '<div style="font-size:.66rem;color:var(--muted)">已提现收入+钱包-支出</div></div>' +
+      '<div><div style="font-size:.72rem;color:var(--muted)">可用资金</div>' +
+      '<div style="font-size:1.12rem;font-weight:700;color:' + (s.balance >= 0 ? 'var(--blue)' : 'var(--red)') + '">' + (s.balance >= 0 ? '' : '-') + '¥' + fmt2(Math.abs(s.balance)) + '</div>' +
+      '<div style="font-size:.66rem;color:var(--muted)">已提现收入-累计支出</div></div>' +
+    '</div>';
+
+  // 最近账单：优先展示未备好的两笔；已备好的弱化展示
+  var box = $('nextBillBox');
+  if (!s.billsWithDue.length) {
+    box.innerHTML = '<div class="empty">还没有账单，去「账单」页添加每月固定或一次性支出吧</div>';
+  } else {
+    var pending = s.billsWithDue.filter(function (x) { return x.stillNeed > 0; });
+    var coveredList = s.billsWithDue.filter(function (x) { return x.stillNeed === 0; });
+    var show = pending.slice(0, 2);
+    var html = '';
+    show.forEach(function (n, idx) {
+      var cls = n.daysTo <= 3 ? 'soon' : 'warn';
+      var tag = '<span class="tag danger">还差 ¥' + fmt2(n.stillNeed) + '</span>';
+      var dueLine = isOnce(n.bill)
+        ? '扣款日期：' + n.bill.due_date + '（一次性）'
+        : '扣款日：每月 ' + n.bill.day_of_month + ' 日（' + (n.due.getMonth() + 1) + '月' + n.due.getDate() + '日）';
+      // 累计构成说明：本笔 + 之前各笔
+      var prevSum = n.cumAmount - n.amount;
+      var cumLine = prevSum > 0
+        ? '本笔 ¥' + fmt2(n.amount) + ' + 此前待还 ¥' + fmt2(prevSum) + ' = 截至此账单共需 ¥' + fmt2(n.cumAmount)
+        : '本笔 ¥' + fmt2(n.amount);
+      var needLine;
+      if (n.daysTo === 0) {
+        needLine = '<div class="daily-need">今天就要扣款！实际还差 <span class="money-hl">¥' + fmt2(n.stillNeed) + '</span>，按实时预计总余额还差 <span class="money-hl blue">¥' + fmt2(n.stillNeedProj) + '</span>，抓紧跑单或先转入</div>';
+      } else {
+        needLine = '<div class="daily-need">剩 ' + n.daysTo + ' 天，实际每天需跑单 <span class="money-hl">¥' + fmt2(n.daily) + '</span>' +
+          '<br>按实时预计总余额 ¥' + fmt2(s.projectedBalance) + ' 算，每天 <span class="money-hl blue">¥' + fmt2(n.dailyProj) + '</span></div>';
+      }
+      if (idx > 0) html += '<div style="height:12px"></div>';
+      html +=
+        '<div class="next-bill">' +
+          '<div class="countdown ' + cls + '"><div class="num">' + (n.daysTo === 0 ? '今' : n.daysTo) + '</div><div class="unit">' + (n.daysTo === 0 ? '今天扣款' : '天后扣款') + '</div></div>' +
+          '<div class="info">' +
+            '<div class="name">' + escapeHtml(n.bill.name) + tag + '</div>' +
+            '<div class="row">' + dueLine + '</div>' +
+            '<div class="row">本笔应还 <b>¥' + fmt2(n.amount) + '</b>，可用资金 <b>¥' + fmt2(s.balance) + '</b></div>' +
+            (prevSum > 0 ? '<div class="row">' + cumLine + '</div>' : '') +
+            '<div class="row">实际还差 <b>¥' + fmt2(n.stillNeed) + '</b>（按可用资金），预计还差 <b>¥' + fmt2(n.stillNeedProj) + '</b>（按实时预计总余额 ¥' + fmt2(s.projectedBalance) + '）</div>' +
+          '</div>' +
+        '</div>' + needLine;
+    });
+    if (!show.length) {
+      html += '<div class="daily-need safe">最近账单的资金都已备好，安心跑单</div>';
+    }
+    // 已备好的账单弱化展示
+    if (coveredList.length) {
+      var names = coveredList.slice(0, 3).map(function (x) { return escapeHtml(x.bill.name); }).join('、');
+      var more = coveredList.length > 3 ? ' 等 ' + coveredList.length + ' 笔' : '';
+      html += '<div class="li-sub" style="margin-top:10px">已备好：' + names + more + '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  // 实际进度：期间已提现收入（不含钱包未提现）
+  var pct = p.billsTotal > 0 ? Math.min(100, p.income / p.billsTotal * 100) : 0;
+  $('progressFill').style.width = pct + '%';
+  $('progressFill').classList.toggle('full', pct >= 100);
+  $('progressPct').textContent = p.billsTotal > 0 ? Math.round(pct) + '%' : '未设账单';
+  $('progressLeft').textContent = '已提现收入 ¥' + fmt2(p.income);
+  $('progressRight').textContent = '目标 ¥' + fmt2(p.billsTotal);
+
+  // 预计进度：期间已提现收入 + 钱包未提现余额
+  var projIncome = p.income + s.walletBalance;
+  var pct2 = p.billsTotal > 0 ? Math.min(100, projIncome / p.billsTotal * 100) : 0;
+  $('progressFill2').style.width = pct2 + '%';
+  $('progressFill2').classList.toggle('full', pct2 >= 100);
+  $('progressPct2').textContent = p.billsTotal > 0 ? Math.round(pct2) + '%' : '未设账单';
+  $('progressLeft2').textContent = '含钱包未提现 ¥' + fmt2(s.walletBalance) + '，合计 ¥' + fmt2(projIncome);
+  $('progressRight2').textContent = '目标 ¥' + fmt2(p.billsTotal);
+}
+
+function renderChart(s) {
+  // 走势图已按需求移除，保留空实现避免外部引用报错
+  return;
+  var box = $('chartBox');
+  var days = [];
+  var maxV = 0;
+  for (var d = 1; d <= s.dim; d++) {
+    var v = s.runByDay[d] || 0;
+    if (v > maxV) maxV = v;
+    days.push(v);
+  }
+  if (maxV === 0) {
+    box.innerHTML = '<div class="empty">本月还没有收入数据。去「钱包」更新余额，或去「记一笔」记收入，就能看到走势图</div>';
+    return;
+  }
+  var todayD = s.now.getDate();
+  var html = '<div class="chart">';
+  for (var i = 0; i < days.length; i++) {
+    var h = days[i] > 0 ? Math.max(4, days[i] / maxV * 100) : 0;
+    html += '<div class="col"><div class="bar' + (i + 1 === todayD ? ' today' : '') + '" style="height:' + h + '%"></div></div>';
+  }
+  html += '</div><div class="x-labels">';
+  for (var j = 1; j <= s.dim; j++) {
+    html += '<span>' + (j % 5 === 0 || j === 1 ? j : '') + '</span>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+// ================= 预算 =================
+// 预算模型：{ id, name, amount }，月度额度，按自然月重置
+// 支出记录可带 budget(=预算id)，扣减对应分类；未关联的支出计入"未归类"
+
+function budgetName(id) {
+  var b = state.budgets.find(function (x) { return x.id === id; });
+  return b ? b.name : '';
+}
+
+// 本月各预算分类消耗（跟随概览筛选的月份/期间）
+function computeBudgetStats(periodFrom, periodTo) {
+  var from = periodFrom, to = periodTo;
+  // 无参数时默认本月
+  if (!from || !to) {
+    var t = localTodayStr();
+    var y = +t.slice(0, 4), m = +t.slice(5, 7);
+    from = t.slice(0, 7) + '-01';
+    to = t.slice(0, 7) + '-' + String(daysInMonth(y, m)).padStart(2, '0');
+  }
+  var spentByBudget = {};
+  var unassigned = 0;
+  state.records.forEach(function (r) {
+    if (r.type !== 'expense') return;
+    if (r.date < from || r.date > to) return;
+    if (r.budget) spentByBudget[r.budget] = (spentByBudget[r.budget] || 0) + (Number(r.amount) || 0);
+    else unassigned += Number(r.amount) || 0;
+  });
+  var cats = state.budgets.map(function (b) {
+    var spent = spentByBudget[b.id] || 0;
+    return { b: b, spent: spent, left: b.amount - spent, pct: b.amount > 0 ? spent / b.amount * 100 : 0 };
+  });
+  var totalBudget = state.budgets.reduce(function (s, c) { return s + c.amount; }, 0);
+  var totalSpent = cats.reduce(function (s, c) { return s + c.spent; }, 0);
+  return {
+    cats: cats, unassigned: unassigned,
+    totalBudget: totalBudget, totalSpent: totalSpent,
+    totalLeft: totalBudget - totalSpent,
+    totalPct: totalBudget > 0 ? totalSpent / totalBudget * 100 : 0
+  };
+}
+
+function renderBudgetOverview(p) {
+  var box = $('budgetOverviewBox');
+  var bs = computeBudgetStats(p ? p.from : null, p ? p.to : null);
+  if (!state.budgets.length) {
+    box.innerHTML = '<div class="empty" style="padding:10px 0 4px">还没设置预算。点右上角「管理预算」添加分类，如：吃饭 800 / 油费 300</div>';
+    return;
+  }
+  var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px">' +
+    '<div style="text-align:center"><div style="font-size:.72rem;color:var(--muted)">总预算</div>' +
+    '<div style="font-size:1.1rem;font-weight:700;color:var(--blue)">¥' + fmt2(bs.totalBudget) + '</div></div>' +
+    '<div style="text-align:center"><div style="font-size:.72rem;color:var(--muted)">已用 / 剩余</div>' +
+    '<div style="font-size:1.1rem;font-weight:700;color:' + (bs.totalLeft >= 0 ? 'var(--green)' : 'var(--red)') + '">¥' + fmt2(bs.totalSpent) + ' / ' + (bs.totalLeft >= 0 ? '¥' : '-¥') + fmt2(Math.abs(bs.totalLeft)) + '</div></div>' +
+    '</div>' +
+    '<div class="progress-track"><div class="progress-fill' + (bs.totalPct >= 100 ? ' full' : '') + '" style="width:' + Math.min(100, bs.totalPct) + '%"></div></div>' +
+    '<div class="progress-note"><span>' + Math.round(bs.totalPct) + '%</span><span>' + (bs.totalLeft >= 0 ? '预算内' : '已超支 ¥' + fmt2(Math.abs(bs.totalLeft))) + '</span></div>';
+  // 各分类行
+  bs.cats.forEach(function (c) {
+    var over = c.left < 0;
+    html += '<div class="gd-row" style="border-top:1px dashed var(--line)">' +
+      '<div><div class="gd-name">' + escapeHtml(c.b.name) +
+      (over ? ' <span class="tag danger" style="margin-left:2px">超支</span>' : '') + '</div>' +
+      '<div class="gd-sub">已用 ¥' + fmt2(c.spent) + ' / 预算 ¥' + fmt2(c.b.amount) + '</div></div>' +
+      '<span class="gd-amount" style="color:' + (over ? 'var(--red)' : 'var(--green)') + '">' +
+      (over ? '超¥' + fmt2(Math.abs(c.left)) : '剩¥' + fmt2(c.left)) + '</span></div>';
+  });
+  if (bs.unassigned > 0) {
+    html += '<div class="gd-row" style="border-top:1px dashed var(--line)">' +
+      '<div><div class="gd-name" style="color:var(--muted)">未关联预算的支出</div></div>' +
+      '<span class="gd-amount" style="color:var(--muted)">¥' + fmt2(bs.unassigned) + '</span></div>';
+  }
+  box.innerHTML = html;
+}
+
+// ===== 预算管理弹窗 =====
+function openBudgetModal() {
+  var html = '<h4><span class="m-icon">预</span>管理预算分类</h4>';
+  if (state.budgets.length) {
+    html += '<div class="bill-detail">';
+    state.budgets.forEach(function (b) {
+      html += '<div class="bd-row">' +
+        '<span class="bd-label">' + escapeHtml(b.name) + '</span>' +
+        '<span class="bd-val red">¥' + fmt2(b.amount) + '/月 ' +
+        '<button class="btn ghost sm" style="margin-left:6px" onclick="editBudget(' + b.id + ')">改</button> ' +
+        '<button class="btn danger sm" onclick="deleteBudget(' + b.id + ',\'' + escapeAttr(b.name) + '\')">删</button></span></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="empty">还没有预算分类</div>';
+  }
+  html += '<div class="form-grid" style="margin-top:12px">' +
+    '<div class="full"><label for="nbName">分类名称</label>' +
+    '<input type="text" id="nbName" maxlength="12" placeholder="如：吃饭 / 油费 / 日用"></div>' +
+    '<div class="full"><label for="nbAmount">每月预算金额（元）</label>' +
+    '<input type="number" id="nbAmount" inputmode="decimal" step="0.01" min="0.01" placeholder="如 800"></div>' +
+    '</div>' +
+    '<div class="modal-btns">' +
+    '<button class="btn ghost" onclick="closeBudgetModal()">关闭</button>' +
+    '<button class="btn" onclick="saveBudget()">添加分类</button>' +
+    '</div>';
+  $('budgetModalBody').innerHTML = html;
+  $('budgetModalMask').classList.remove('hidden');
+}
+function closeBudgetModal() {
+  editingBudgetId = null;
+  $('budgetModalMask').classList.add('hidden');
+}
+var editingBudgetId = null;
+function saveBudget() {
+  var name = $('nbName').value.trim();
+  var amount = parseFloat($('nbAmount').value);
+  if (!name) { toast('请输入分类名称'); return; }
+  if (!isFinite(amount) || amount <= 0) { toast('请输入正确的预算金额'); return; }
+  if (editingBudgetId) {
+    var b = state.budgets.find(function (x) { return x.id === editingBudgetId; });
+    if (b) { b.name = name; b.amount = amount; }
+  } else {
+    state.budgets.push({ id: newId(), name: name, amount: amount });
+  }
+  if (dbWrite()) {
+    toast(editingBudgetId ? '预算已更新' : '预算分类已添加');
+    editingBudgetId = null;
+    openBudgetModal(); // 刷新弹窗列表
+    renderOverview();
+  }
+}
+function editBudget(id) {
+  var b = state.budgets.find(function (x) { return x.id === id; });
+  if (!b) return;
+  editingBudgetId = id;
+  $('nbName').value = b.name;
+  $('nbAmount').value = b.amount;
+  // 保存按钮变为"保存修改"
+  var btn = $('budgetModalBody').querySelector('.modal-btns .btn:not(.ghost)');
+  if (btn) btn.textContent = '保存修改';
+}
+function deleteBudget(id, name) {
+  confirmDialog('确定删除预算「' + name + '」吗？已关联的支出记录会保留，但不再计入任何分类。', function () {
+    state.budgets = state.budgets.filter(function (x) { return x.id !== id; });
+    if (dbWrite()) { toast('已删除'); openBudgetModal(); renderOverview(); }
+  });
+}
+
+
+// ===== 更新余额弹窗 =====
+function openWalletBalanceModal() {
+  var s = computeStats();
+  var prevTip = s.latestWallet
+    ? '上次余额：¥' + fmt(s.latestWallet.balance) + '（' + (s.latestWallet.date === s.todayStr ? '今天' : s.latestWallet.date) + '）'
+    : '还没有录入过余额，输入当前京东众包钱包里的未提现金额即可';
+  var html =
+    '<h4><span class="m-icon">钱</span>更新钱包余额</h4>' +
+    '<div class="li-sub" style="margin-bottom:10px">' + prevTip + '</div>' +
+    '<div class="form-grid">' +
+      '<div><label for="walletDateInput">余额日期</label>' +
+      '<input type="date" id="walletDateInput"></div>' +
+      '<div><label for="walletBalanceInput">当日钱包余额（元）</label>' +
+      '<input type="number" id="walletBalanceInput" inputmode="decimal" step="0.01" min="0" placeholder="如 150"></div>' +
+    '</div>' +
+    '<div class="modal-btns">' +
+      '<button class="btn ghost" onclick="closeWalletModal()">取消</button>' +
+      '<button class="btn" onclick="submitWalletBalance()">更新余额</button>' +
+    '</div>';
+  $('walletModalBody').innerHTML = html;
+  $('walletDateInput').value = localTodayStr();
+  $('walletModalMask').classList.remove('hidden');
+}
+
+function closeWalletModal() {
+  $('walletModalMask').classList.add('hidden');
+}
+
+function submitWalletBalance() {
+  var date = $('walletDateInput').value || localTodayStr();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('请选择余额日期'); return; }
+  var balance = parseFloat($('walletBalanceInput').value);
+  if (!isFinite(balance) || balance < 0) { toast('请输入正确的钱包余额'); return; }
+  var s = computeStats();
+  // 同一天重复更新时直接覆盖
+  var sameDay = state.walletLogs.find(function (w) { return w.date === date; });
+  if (sameDay && Math.abs((Number(sameDay.balance) || 0) - balance) >= 0.005) {
+    if (!confirm(date + ' 已有余额 ¥' + fmt(sameDay.balance) + '，确定覆盖为 ¥' + fmt(balance) + ' 吗？')) return;
+    sameDay.balance = balance;
+    sameDay.created_at = new Date().toISOString();
+  } else {
+    // 提示所选日期之前最近一次的余额
+    var prev = null;
+    s.walletLogsSorted.forEach(function (w) { if (w.date < date) prev = w; });
+    if (prev && !confirm('所选日期之前的余额：¥' + fmt(prev.balance) + '（' + prev.date + '），确定记录 ' + date + ' 余额为 ¥' + fmt(balance) + ' 吗？')) return;
+    state.walletLogs.push({ id: newId(), date: date, balance: balance, created_at: new Date().toISOString() });
+  }
+  if (dbWrite()) {
+    toast('已记录 ' + date + ' 钱包余额 ¥' + fmt(balance));
+    closeWalletModal();
+    loadAll();
+    renderWalletPage();
+  }
+}
+
+// ===== 提现弹窗 =====
+function openWithdrawModal() {
+  var s = computeStats();
+  var tip = s.latestWallet
+    ? '当前钱包余额：¥' + fmt(s.walletBalance) + '（' + (s.latestWallet.date === s.todayStr ? '今天' : s.latestWallet.date) + '）'
+    : '还没有录入钱包余额，建议先更新余额';
+  var html =
+    '<h4><span class="m-icon">钱</span>从钱包提现到总收入</h4>' +
+    '<div class="li-sub" style="margin-bottom:10px">' + tip + '</div>' +
+    '<div class="form-grid">' +
+      '<div><label for="wdAmount">提现金额（元）</label>' +
+      '<input type="number" id="wdAmount" inputmode="decimal" step="0.01" min="0.01" placeholder="如 150" oninput="updateWdPreview()"></div>' +
+      '<div><label for="wdFee">提现费（元，可为0）</label>' +
+      '<input type="number" id="wdFee" inputmode="decimal" step="0.01" min="0" value="0" oninput="updateWdPreview()"></div>' +
+      '<div class="full"><label for="wdNote">备注（选填）</label>' +
+      '<input type="text" id="wdNote" maxlength="50" placeholder="如：提现到银行卡"></div>' +
+      '<div class="full li-sub" id="wdPreview"></div>' +
+    '</div>' +
+    '<div class="modal-btns">' +
+      '<button class="btn ghost" onclick="closeWalletModal()">取消</button>' +
+      '<button class="btn" onclick="submitWithdraw()">确认提现</button>' +
+    '</div>';
+  $('walletModalBody').innerHTML = html;
+  $('walletModalMask').classList.remove('hidden');
+}
+
+function deleteWalletLog(id) {
+  confirmDialog('确定删除这条余额记录吗？', function () {
+    state.walletLogs = state.walletLogs.filter(function (x) { return x.id !== id; });
+    if (dbWrite()) { toast('已删除'); loadAll(); renderWalletPage(); }
+  });
+}
+
+function updateWdPreview() {
+  var amount = parseFloat($('wdAmount').value);
+  var fee = parseFloat($('wdFee').value) || 0;
+  var box = $('wdPreview');
+  if (!box) return;
+  if (!isFinite(amount) || amount <= 0 || fee < 0) { box.textContent = ''; return; }
+  var actual = amount - fee;
+  if (actual <= 0) { box.textContent = '提现费不能大于等于提现金额'; box.style.color = 'var(--red)'; return; }
+  var s = computeStats();
+  var left = s.walletBalance - amount;
+  box.style.color = 'var(--muted)';
+  box.textContent = '实际到账 ¥' + fmt2(actual) + ' 计入总收入，钱包余额将变为 ¥' + fmt2(left) +
+    (left < 0 ? '（超出当前钱包余额！）' : '');
+}
+
+function submitWithdraw() {
+  var amount = parseFloat($('wdAmount').value);
+  var fee = parseFloat($('wdFee').value) || 0;
+  var note = $('wdNote').value.trim();
+  if (!isFinite(amount) || amount <= 0) { toast('请输入正确的提现金额'); return; }
+  if (!isFinite(fee) || fee < 0) { toast('提现费不能为负数'); return; }
+  var actual = amount - fee;
+  if (actual <= 0) { toast('提现费不能大于等于提现金额'); return; }
+  var s = computeStats();
+  if (amount > s.walletBalance) {
+    if (!confirm('提现金额 ¥' + fmt(amount) + ' 超过当前钱包余额 ¥' + fmt(s.walletBalance) + '，仍要记录吗？')) return;
+  }
+  if (!confirm('提现 ¥' + fmt2(amount) + '，手续费 ¥' + fmt2(fee) + '，实际到账 ¥' + fmt2(actual) + ' 计入总收入，确定吗？')) return;
+  var now = new Date().toISOString();
+  var date = localTodayStr();
+  // 1) 提现记录
+  state.withdraws.push({ id: newId(), date: date, amount: amount, fee: fee, actual: actual, note: note, created_at: now });
+  // 2) 到账金额计入总收入（生成一条收入记录，wd 标记避免重复计入走势图）
+  var wdNote = '钱包提现' + (fee > 0 ? '（手续费¥' + fmt2(fee) + '）' : '') + (note ? ' · ' + note : '');
+  state.records.push({ id: newId(), type: 'income', date: date, amount: actual, note: wdNote, created_at: now, wd: 1 });
+  // 3) 钱包余额扣减提现额，自动生成余额记录
+  var newBalance = Math.max(0, s.walletBalance - amount);
+  state.walletLogs.push({ id: newId(), date: date, balance: newBalance, created_at: now, auto: true });
+  if (dbWrite()) {
+    toast('提现成功：到账 ¥' + fmt2(actual) + ' 已计入总收入');
+    closeWalletModal();
+    loadAll();
+    renderWalletPage();
+  }
+}
+
+function deleteWithdraw(id) {
+  if (!confirm('删除提现记录会同时撤销对应的收入记录和余额变动，确定吗？')) return;
+  var w = state.withdraws.find(function (x) { return x.id === id; });
+  if (!w) return;
+  // 撤销关联收入记录（按 created_at 匹配）
+  state.records = state.records.filter(function (r) { return !(r.type === 'income' && r.created_at === w.created_at); });
+  // 撤销自动生成的余额记录
+  state.walletLogs = state.walletLogs.filter(function (x) { return !(x.auto && x.created_at === w.created_at); });
+  state.withdraws = state.withdraws.filter(function (x) { return x.id !== id; });
+  if (dbWrite()) { toast('已撤销该笔提现'); loadAll(); renderWalletPage(); }
+}
+
+function renderWalletPage() {
+  var s = computeStats();
+  // 上次余额提示
+  $('walletPrevInfo').textContent = s.latestWallet
+    ? '上次余额：¥' + fmt(s.latestWallet.balance) + '（' + (s.latestWallet.date === s.todayStr ? '今天' : s.latestWallet.date) + '）'
+    : '还没有录入过余额，点击「更新钱包余额」录入京东众包钱包里的未提现金额';
+
+  // 余额记录（倒序）
+  var logBox = $('walletLogList');
+  if (!state.walletLogs.length) {
+    logBox.innerHTML = '<div class="empty">还没有余额记录</div>';
+  } else {
+    var logs = s.walletLogsSorted.slice().reverse();
+    var html = '';
+    logs.forEach(function (w, i) {
+      var prev = i + 1 < logs.length ? logs[i + 1] : null;
+      var delta = prev ? ((Number(w.balance) || 0) - (Number(prev.balance) || 0)) : null;
+      var deltaLine = delta == null ? '' :
+        (delta >= 0 ? '较上次 +¥' + fmt(delta) : '较上次 -¥' + fmt(Math.abs(delta)));
+      html += '<div class="list-item">' +
+        '<div class="li-main">' +
+          '<div class="li-title">' + (w.date === s.todayStr ? '今天' : w.date) +
+          (w.auto ? ' <span class="tag gray" style="margin-left:0">提现自动扣减</span>' : '') + '</div>' +
+          (deltaLine ? '<div class="li-sub">' + deltaLine + '</div>' : '') +
+        '</div>' +
+        '<div class="li-amount orange">¥' + fmt(w.balance) + '</div>' +
+        '<div class="actions"><button class="btn danger sm" onclick="deleteWalletLog(' + w.id + ')">删</button></div>' +
+        '</div>';
+    });
+    logBox.innerHTML = html;
+  }
+
+  // 提现记录（倒序）
+  var wdBox = $('withdrawList');
+  if (!state.withdraws.length) {
+    wdBox.innerHTML = '<div class="empty">还没有提现记录</div>';
+  } else {
+    var wds = state.withdraws.slice().sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+    var html2 = '';
+    wds.forEach(function (w) {
+      html2 += '<div class="list-item">' +
+        '<div class="li-main">' +
+          '<div class="li-title">' + (w.date === s.todayStr ? '今天' : w.date) +
+          ' <span class="tag gray" style="margin-left:0">提现</span></div>' +
+          '<div class="li-sub">提现 ¥' + fmt(w.amount) +
+          (w.fee > 0 ? ' · 手续费 ¥' + fmt(w.fee) : ' · 无手续费') +
+          (w.note ? ' · ' + escapeHtml(w.note) : '') + '</div>' +
+        '</div>' +
+        '<div class="li-amount green">+¥' + fmt(w.actual) + '</div>' +
+        '<div class="actions"><button class="btn danger sm" onclick="deleteWithdraw(' + w.id + ')">删</button></div>' +
+        '</div>';
+    });
+    wdBox.innerHTML = html2;
+  }
+}
+
+// ================= 记一笔 =================
+var recordType = 'income';
+
+function setRecordType(t) {
+  recordType = t;
+  ['income', 'expense', 'transfer'].forEach(function (x) {
+    $('rtype-' + x).classList.toggle('active', x === t);
+  });
+  var isTransfer = t === 'transfer';
+  $('recFromWrap').classList.toggle('hidden', !isTransfer);
+  $('recToWrap').classList.toggle('hidden', !isTransfer);
+  $('recBudgetWrap').classList.toggle('hidden', t !== 'expense');
+  if (t === 'expense') fillBudgetOptions();
+  $('recSubmitBtn').textContent = '保存' + typeLabel(t);
+  $('recNote').placeholder = isTransfer ? '如：还款给招联金融、提现到银行卡' :
+    (t === 'income' ? '如：中午高峰期、美团+饿了么' : '如：吃饭、话费充值、房租');
+}
+
+// 预算分类下拉选项
+function fillBudgetOptions() {
+  var sel = $('recBudget');
+  var html = '<option value="">不关联预算</option>';
+  state.budgets.forEach(function (b) {
+    html += '<option value="' + b.id + '">' + escapeHtml(b.name) + '（月预算 ¥' + fmt2(b.amount) + '）</option>';
+  });
+  sel.innerHTML = html;
+}
+
+function submitRecord() {
+  var date = $('recDate').value || localTodayStr();
+  var amount = parseFloat($('recAmount').value);
+  var note = $('recNote').value.trim();
+  var type = recordType;
+  if (!isFinite(amount) || amount <= 0) { toast('请输入正确的金额'); return; }
+  var rec = { id: newId(), type: type, date: date, amount: amount, note: note, created_at: new Date().toISOString() };
+  if (type === 'transfer') {
+    rec.from = $('recFrom').value.trim() || '未填写';
+    rec.to = $('recTo').value.trim() || '未填写';
+  }
+  if (type === 'expense') {
+    var bId = $('recBudget').value;
+    if (bId) rec.budget = parseInt(bId, 10);
+  }
+  state.records.push(rec);
+  if (dbWrite()) {
+    toast('已保存' + typeLabel(type) + ' ¥' + fmt(amount));
+    $('recAmount').value = '';
+    $('recNote').value = '';
+    $('recFrom').value = '';
+    $('recTo').value = '';
+    $('recBudget').value = '';
+    loadAll();
+  }
+}
+
+function deleteRecord(id) {
+  if (!confirm('确定删除这条记录吗？')) return;
+  state.records = state.records.filter(function (x) { return x.id !== id; });
+  if (dbWrite()) { toast('已删除'); loadAll(); renderHistory(); }
+}
+
+function recordRowHtml(r) {
+  var amtCls = r.type === 'income' ? 'green' : (r.type === 'expense' ? 'red' : 'blue');
+  var amtSign = r.type === 'income' ? '+¥' : (r.type === 'expense' ? '-¥' : '¥');
+  var sub = r.type === 'transfer' ? (escapeHtml(r.from) + ' → ' + escapeHtml(r.to)) : '';
+  if (r.type === 'expense' && r.budget) {
+    var bn = budgetName(r.budget);
+    sub = sub ? (sub + ' · ') : '';
+    sub += bn ? ('预算：' + escapeHtml(bn)) : '';
+  }
+  if (r.note) sub = sub ? (sub + ' · ' + escapeHtml(r.note)) : escapeHtml(r.note);
+  return '<div class="list-item">' +
+    '<div class="li-main"><div class="li-title">' + typeLabel(r.type) + '</div>' +
+    (sub ? '<div class="li-sub">' + sub + '</div>' : '') + '</div>' +
+    '<div class="li-amount ' + amtCls + '">' + amtSign + fmt(r.amount) + '</div>' +
+    '<div class="actions"><button class="btn danger sm" onclick="deleteRecord(' + r.id + ')">删</button></div>' +
+    '</div>';
+}
+
+function renderTodayRecords() {
+  var box = $('todayRecords');
+  var today = localTodayStr();
+  var list = state.records.filter(function (r) { return r.date === today; });
+  if (!list.length) {
+    box.innerHTML = '<div class="empty">今天还没有记录</div>';
+    return;
+  }
+  var html = '';
+  list.forEach(function (r) { html += recordRowHtml(r); });
+  box.innerHTML = html;
+}
+
+// ================= 账单 =================
+var editingBillId = null;
+
+// ===== 添加/修改账单统一弹窗 =====
+function initEBillDayOptions() {
+  var sel = $('eBillDay');
+  if (sel.options.length) return;
+  var html = '';
+  for (var i = 1; i <= 31; i++) html += '<option value="' + i + '">' + i + ' 日</option>';
+  sel.innerHTML = html;
+}
+function onEBillTypeChange() {
+  var isOnceType = $('eBillType').value === 'once';
+  $('eBillDayWrap').classList.toggle('hidden', isOnceType);
+  $('eBillEndWrap').classList.toggle('hidden', isOnceType);
+  $('eBillDateWrap').classList.toggle('hidden', !isOnceType);
+}
+// 表单 HTML 模板（弹窗内容可能被详情/列表替换，每次打开时重建）
+function buildBillFormHtml(titleIcon) {
+  return '<h4><span class="m-icon">' + titleIcon + '</span><span id="eModalTitle">账单</span></h4>' +
+    '<div class="form-grid">' +
+      '<div class="full"><label for="eBillName">账单名称</label>' +
+      '<input type="text" id="eBillName" maxlength="20" placeholder="如：招联金融还贷"></div>' +
+      '<div><label for="eBillAmount">金额（元）</label>' +
+      '<input type="number" id="eBillAmount" inputmode="decimal" step="0.01" min="0" placeholder="如 1200"></div>' +
+      '<div><label for="eBillType">账单类型</label>' +
+      '<select id="eBillType" onchange="onEBillTypeChange()">' +
+      '<option value="monthly">每月固定</option><option value="once">一次性</option></select></div>' +
+      '<div id="eBillDayWrap"><label for="eBillDay">每月扣款日</label><select id="eBillDay"></select></div>' +
+      '<div id="eBillEndWrap"><label for="eBillEndMonth">结束月份（选填，最后一期）</label>' +
+      '<input type="month" id="eBillEndMonth"></div>' +
+      '<div id="eBillDateWrap" class="hidden"><label for="eBillDate">扣款日期</label>' +
+      '<input type="date" id="eBillDate"></div>' +
+    '</div>' +
+    '<div class="modal-btns">' +
+      '<button class="btn ghost" onclick="closeEditModal()">取消</button>' +
+      '<button class="btn" onclick="saveBillEdit()">保存</button>' +
+    '</div>';
+}
+// 打开弹窗：bill 为 null 表示添加；presetDate 可选（从日历某天快速添加一次性账单）
+function openBillModal(bill, presetDate) {
+  $('editModalBody').innerHTML = buildBillFormHtml(bill ? '改' : '＋');
+  initEBillDayOptions();
+  if (bill) {
+    editingBillId = bill.id;
+    $('eModalTitle').textContent = '修改账单';
+    $('eBillName').value = bill.name;
+    $('eBillAmount').value = bill.amount;
+    var once = isOnce(bill);
+    $('eBillType').value = once ? 'once' : 'monthly';
+    onEBillTypeChange();
+    if (once) $('eBillDate').value = bill.due_date;
+    else {
+      $('eBillDay').value = bill.day_of_month;
+      $('eBillEndMonth').value = bill.end_month || '';
+    }
+  } else {
+    editingBillId = null;
+    $('eModalTitle').textContent = '添加账单';
+    $('eBillType').value = presetDate ? 'once' : 'monthly';
+    onEBillTypeChange();
+    $('eBillDay').value = 1;
+    $('eBillEndMonth').value = '';
+    if (presetDate) $('eBillDate').value = presetDate;
+  }
+  $('editModalMask').classList.remove('hidden');
+}
+function editBill(id) {
+  var b = state.bills.find(function (x) { return x.id === id; });
+  if (b) openBillModal(b, null);
+}
+function closeEditModal() {
+  editingBillId = null;
+  $('editModalMask').classList.add('hidden');
+}
+function saveBillEdit() {
+  var name = $('eBillName').value.trim();
+  var amount = parseFloat($('eBillAmount').value);
+  var type = $('eBillType').value;
+  if (!name) { toast('请输入账单名称'); return; }
+  if (!isFinite(amount) || amount < 0) { toast('请输入正确的金额'); return; }
+  var dueDate = null, day = null, endMonth = null;
+  if (type === 'once') {
+    dueDate = $('eBillDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) { toast('请选择一次性账单的扣款日期'); return; }
+  } else {
+    day = parseInt($('eBillDay').value, 10);
+    if (!day || day < 1 || day > 31) { toast('请选择扣款日'); return; }
+    endMonth = ($('eBillEndMonth').value || '').trim();
+    if (endMonth && !/^\d{4}-\d{2}$/.test(endMonth)) { toast('结束月份格式不正确'); return; }
+  }
+  if (editingBillId) {
+    var b = state.bills.find(function (x) { return x.id === editingBillId; });
+    if (!b) { closeEditModal(); return; }
+    b.name = name; b.amount = amount; b.type = type;
+    delete b.due_date; delete b.day_of_month; delete b.end_month;
+    if (type === 'once') b.due_date = dueDate;
+    else { b.day_of_month = day; b.end_month = endMonth || null; }
+  } else {
+    var nb = { id: newId(), name: name, amount: amount, type: type, created_at: new Date().toISOString() };
+    if (type === 'once') nb.due_date = dueDate;
+    else { nb.day_of_month = day; nb.end_month = endMonth || null; }
+    state.bills.push(nb);
+  }
+  if (dbWrite()) {
+    toast(editingBillId ? '账单已更新' : '账单已添加');
+    var wasEdit = !!editingBillId;
+    closeEditModal();
+    loadAll();
+    renderCalendar(); // 显式刷新日历，确保同步
+    // 添加一次性账单后，日历跳到该账单所在月份方便确认
+    if (!wasEdit && type === 'once') {
+      calYear = parseInt(dueDate.slice(0, 4), 10);
+      calMonth = parseInt(dueDate.slice(5, 7), 10) - 1;
+      renderCalendar();
+    }
+  }
+}
+
+// ===== 删除确认弹窗 =====
+var confirmCb = null;
+function confirmDialog(msg, cb) {
+  $('confirmMsg').textContent = msg;
+  confirmCb = cb;
+  $('confirmModalMask').classList.remove('hidden');
+}
+function closeConfirmModal() {
+  confirmCb = null;
+  $('confirmModalMask').classList.add('hidden');
+}
+function confirmOk() {
+  var cb = confirmCb;
+  closeConfirmModal();
+  if (cb) cb();
+}
+
+function deleteBill(id, name) {
+  confirmDialog('确定删除账单「' + name + '」吗？删除后不可恢复。', function () {
+    state.bills = state.bills.filter(function (x) { return x.id !== id; });
+    if (dbWrite()) { toast('已删除'); loadAll(); renderCalendar(); }
+  });
+}
+
+// ===== 账单日历 =====
+var calYear = null, calMonth = null; // null 表示跟随当前月
+
+function calShift(delta) {
+  if (calYear == null) {
+    var now = new Date();
+    calYear = now.getFullYear(); calMonth = now.getMonth();
+  }
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+// 获取某年某月的账单映射：day -> [bills]
+function billsOnMonth(year, month) {
+  var map = {};
+  state.bills.forEach(function (b) {
+    var d = null;
+    if (isOnce(b)) {
+      if (parseInt(String(b.due_date).slice(0, 4), 10) === year && parseInt(String(b.due_date).slice(5, 7), 10) - 1 === month) {
+        d = parseInt(String(b.due_date).slice(8), 10);
+      }
+    } else {
+      if (billEndedFor(b, year, month)) return; // 已过最后一期的固定账单不再显示
+      d = Math.min(b.day_of_month, daysInMonth(year, month + 1));
+    }
+    if (d) {
+      if (!map[d]) map[d] = [];
+      map[d].push(b);
+    }
+  });
+  return map;
+}
+
+function renderCalendar() {
+  var now = new Date();
+  if (calYear == null) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+  var y = calYear, m = calMonth;
+  var monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  $('calTitle').textContent = y + '年' + monthNames[m];
+  var dim = daysInMonth(y, m + 1);
+  var firstWeekday = new Date(y, m, 1).getDay();
+  var billsMap = billsOnMonth(y, m);
+  var todayStr = localTodayStr();
+  var html = '';
+  for (var i = 0; i < firstWeekday; i++) html += '<div class="cal-cell empty"></div>';
+  for (var d = 1; d <= dim; d++) {
+    var dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    var bills = billsMap[d] || [];
+    var cls = 'cal-cell';
+    if (bills.length) cls += ' has-bill';
+    if (dateStr === todayStr) cls += ' today';
+    var inner = '<span class="cal-daynum">' + d + '</span>';
+    if (bills.length) {
+      // 每格最多显示2条账单，多的用「+N」提示
+      var showBills = bills.slice(0, 2);
+      inner += '<span class="cal-bills">';
+      showBills.forEach(function (b) {
+        var typeStr = isOnce(b) ? '一次性' : '固定';
+        inner += '<span class="cal-bill">' + escapeHtml(b.name) + ' ' +
+          '<span class="cb-amt">¥' + fmt2(b.amount) + '</span>' +
+          '<span class="cb-type"> ' + typeStr + '</span></span>';
+      });
+      if (bills.length > 2) inner += '<span class="cal-bill" style="text-align:center">+' + (bills.length - 2) + ' 笔</span>';
+      inner += '</span>';
+      html += '<div class="' + cls + '" onclick="showDayBills(\'' + dateStr + '\',' + d + ')">' + inner + '</div>';
+    } else {
+      html += '<div class="' + cls + '">' + inner + '</div>';
+    }
+  }
+  $('calGrid').innerHTML = html;
+}
+
+// 点击日历某天：一天一笔直接显示详情，多笔弹列表选择
+function showDayBills(dateStr, day) {
+  var y = parseInt(dateStr.slice(0, 4), 10);
+  var m = parseInt(dateStr.slice(5, 7), 10) - 1;
+  var bills = billsOnMonth(y, m)[day] || [];
+  if (!bills.length) return;
+  if (bills.length === 1) return showBillDetail(bills[0]);
+  var html = '<h4><span class="m-icon">单</span>' + dateStr + ' 的账单</h4><div class="bill-detail">';
+  bills.forEach(function (b) {
+    html += '<div class="bd-row" style="cursor:pointer" onclick="showBillDetail(state.bills.find(function(x){return x.id===' + b.id + '}))">' +
+      '<span class="bd-label">' + escapeHtml(b.name) + (isOnce(b) ? '（一次性）' : '（固定）') + '</span>' +
+      '<span class="bd-val red">¥' + fmt2(b.amount) + ' ›</span></div>';
+  });
+  html += '</div><div class="modal-btns"><button class="btn ghost" onclick="closeEditModal()">关闭</button>' +
+    '<button class="btn" onclick="openBillModal(null,\'' + dateStr + '\')">＋ 在这天添加</button></div>';
+  var box = $('editModalBody');
+  box.innerHTML = html;
+  $('editModalMask').classList.remove('hidden');
+}
+
+// 账单详情弹窗（底部带修改/删除）
+function showBillDetail(b) {
+  if (!b) return;
+  var s = computeStats();
+  var n = s.billsWithDue.find(function (x) { return x.bill.id === b.id; });
+  var typeStr = isOnce(b)
+    ? '一次性 · ' + b.due_date
+    : '每月 ' + b.day_of_month + ' 日' + (b.end_month ? ' · 至 ' + b.end_month + ' 最后一期' : '');
+  var countdown = n ? (n.daysTo === 0 ? '今天扣款' : n.daysTo + ' 天后扣款') : '已过扣款日';
+  var still = n ? n.stillNeed : null;
+  var html = '<h4><span class="m-icon">单</span>' + escapeHtml(b.name) + '</h4><div class="bill-detail">' +
+    '<div class="bd-row"><span class="bd-label">类型</span><span class="bd-val">' + typeStr + '</span></div>' +
+    '<div class="bd-row"><span class="bd-label">金额</span><span class="bd-val red">¥' + fmt2(b.amount) + '</span></div>' +
+    '<div class="bd-row"><span class="bd-label">下次扣款</span><span class="bd-val">' + countdown + '</span></div>';
+  if (n) {
+    html += '<div class="bd-row"><span class="bd-label">还差（实际）</span><span class="bd-val red">¥' + fmt2(n.stillNeed) + '</span></div>' +
+      '<div class="bd-row"><span class="bd-label">还差（预计）</span><span class="bd-val red">¥' + fmt2(n.stillNeedProj) + '</span></div>';
+  }
+  html += '</div><div class="modal-btns">' +
+    '<button class="btn ghost" onclick="closeEditModal()">关闭</button>' +
+    '<button class="btn ghost" onclick="deleteBill(' + b.id + ',\'' + escapeAttr(b.name) + '\')">删除</button>' +
+    '<button class="btn" onclick="openBillModal(state.bills.find(function(x){return x.id===' + b.id + '}), null)">修改</button>' +
+    '</div>';
+  var box = $('editModalBody');
+  box.innerHTML = html;
+  $('editModalMask').classList.remove('hidden');
+}
+
+function renderBills() {
+  var s = computeStats();
+  renderCalendar();
+  var list = $('billList');
+  if (!state.bills.length) {
+    list.innerHTML = '<div class="empty">还没有账单，先添加像「招联金融 8 日还贷」这样的支出</div>';
+  } else {
+    var html = '';
+    s.billsWithDue.forEach(function (n) {
+      var b = n.bill;
+      var status = n.stillNeed === 0
+        ? '<span class="tag safe">已备好</span>'
+        : '<span class="tag danger">还差 ¥' + fmt2(n.stillNeed) + '</span>';
+      var typeTag = isOnce(b)
+        ? '<span class="tag gray">一次性</span>'
+        : '<span class="tag gray">固定</span>';
+      var sub = isOnce(b) ? '扣款日 ' + b.due_date : '每月 ' + b.day_of_month + ' 日扣款' + (b.end_month ? ' · 至 ' + b.end_month + ' 最后一期' : '');
+      sub += ' · ' + (n.daysTo === 0 ? '<b style="color:var(--red)">今天扣款</b>' : n.daysTo + ' 天后扣款');
+      var prevSum = n.cumAmount - n.amount;
+      if (prevSum > 0) sub += ' · 本笔 ¥' + fmt2(n.amount) + ' + 此前待还 ¥' + fmt2(prevSum);
+      var dailyLine = n.stillNeed === 0 ? '' :
+        '<div class="li-sub" style="color:var(--orange)">实际每天需跑单 <span class="money-hl">¥' + fmt2(n.daily) + '</span> · 预计（实时预计总余额）每天 <span class="money-hl blue">¥' + fmt2(n.dailyProj) + '</span></div>';
+      html +=
+        '<div class="list-item">' +
+          '<div class="li-main">' +
+            '<div class="li-title">' + escapeHtml(b.name) + typeTag + status + '</div>' +
+            '<div class="li-sub">' + sub + '</div>' + dailyLine +
+          '</div>' +
+          '<div class="li-amount red">¥' + fmt2(b.amount) + '</div>' +
+          '<div class="actions">' +
+            '<button class="btn ghost sm" onclick="editBill(' + b.id + ')">改</button>' +
+            '<button class="btn danger sm" onclick="deleteBill(' + b.id + ',\'' + escapeAttr(b.name) + '\')">删</button>' +
+          '</div>' +
+        '</div>';
+    });
+    s.expiredBills.forEach(function (n) {
+      var b = n.bill;
+      html +=
+        '<div class="list-item" style="opacity:.55">' +
+          '<div class="li-main">' +
+            '<div class="li-title">' + escapeHtml(b.name) + '<span class="tag gray">已过扣款日</span></div>' +
+            '<div class="li-sub">一次性 ' + b.due_date + ' · 已结束，还完后可删除</div>' +
+          '</div>' +
+          '<div class="li-amount red">¥' + fmt(b.amount) + '</div>' +
+          '<div class="actions">' +
+            '<button class="btn ghost sm" onclick="editBill(' + b.id + ')">改</button>' +
+            '<button class="btn danger sm" onclick="deleteBill(' + b.id + ',\'' + escapeAttr(b.name) + '\')">删</button>' +
+          '</div>' +
+        '</div>';
+    });
+    s.finishedBills.forEach(function (n) {
+      var b = n.bill;
+      html +=
+        '<div class="list-item" style="opacity:.55">' +
+          '<div class="li-main">' +
+            '<div class="li-title">' + escapeHtml(b.name) + '<span class="tag gray">已结清</span></div>' +
+            '<div class="li-sub">每月 ' + b.day_of_month + ' 日 · 最后一期 ' + b.end_month + ' 已过，还完后可删除</div>' +
+          '</div>' +
+          '<div class="li-amount red">¥' + fmt(b.amount) + '</div>' +
+          '<div class="actions">' +
+            '<button class="btn ghost sm" onclick="editBill(' + b.id + ')">改</button>' +
+            '<button class="btn danger sm" onclick="deleteBill(' + b.id + ',\'' + escapeAttr(b.name) + '\')">删</button>' +
+          '</div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+  }
+  $('billSumAmount').textContent = '¥' + fmt2(s.target);
+  $('billMonthlySum').textContent = '¥' + fmt2(s.monthlySum);
+  $('billOnceSum').textContent = '¥' + fmt2(s.onceSum);
+  $('billSumSub').textContent = '固定 ¥' + fmt2(s.monthlySum) + ' + 一次性 ¥' + fmt2(s.onceSum) + '，本月收入 ¥' + fmt2(s.monthIncome) + (s.over > 0 ? '，已超额 ¥' + fmt2(s.over) : '，还差 ¥' + fmt2(s.gap)) +
+    (s.gap > 0 ? '，剩 ' + s.daysLeft + ' 天日均 ¥' + fmt2(s.dailyNeed) : '');
+
+  // 分组明细内容（展开时显示）
+  var mBox = $('monthlyGroup');
+  if (!s.billsWithDue.concat(s.expiredBills).length || !state.bills.some(function (b) { return !isOnce(b); })) {
+    mBox.innerHTML = '<div class="gd-row"><span class="gd-sub">暂无固定账单</span></div>';
+  } else {
+    var mHtml = '';
+    state.bills.filter(function (b) { return !isOnce(b); }).forEach(function (b) {
+      mHtml += '<div class="gd-row">' +
+        '<div><div class="gd-name">' + escapeHtml(b.name) + '</div>' +
+        '<div class="gd-sub">每月 ' + b.day_of_month + ' 日扣款' + (b.end_month ? ' · 至 ' + b.end_month + ' 最后一期' : '') + '</div></div>' +
+        '<span class="gd-amount">¥' + fmt2(b.amount) + '</span></div>';
+    });
+    mBox.innerHTML = mHtml;
+  }
+  var oBox = $('onceGroup');
+  var onceBills = state.bills.filter(function (b) {
+    return isOnce(b) && monthOf(b.due_date || '') === s.curMonth;
+  });
+  if (!onceBills.length) {
+    oBox.innerHTML = '<div class="gd-row"><span class="gd-sub">本月没有一次性账单</span></div>';
+  } else {
+    var oHtml = '';
+    onceBills.forEach(function (b) {
+      oHtml += '<div class="gd-row">' +
+        '<div><div class="gd-name">' + escapeHtml(b.name) + '</div>' +
+        '<div class="gd-sub">' + b.due_date + ' 扣款</div></div>' +
+        '<span class="gd-amount">¥' + fmt2(b.amount) + '</span></div>';
+    });
+    oBox.innerHTML = oHtml;
+  }
+}
+
+// 展开/收起分组
+function toggleGroup(groupId, headerEl) {
+  var box = $(groupId);
+  var willShow = box.classList.contains('hidden');
+  box.classList.toggle('hidden', !willShow);
+  if (headerEl) headerEl.classList.toggle('open', willShow);
+}
+
+// ================= 历史 =================
+function renderHistory() {
+  var box = $('historyList');
+  if (!state.records.length) {
+    box.innerHTML = '<div class="empty">还没有收支记录</div>';
+    $('historySum').textContent = '';
+    return;
+  }
+  var groups = {};
+  state.records.forEach(function (r) {
+    var m = monthOf(r.date);
+    if (!groups[m]) groups[m] = [];
+    groups[m].push(r);
+  });
+  var months = Object.keys(groups).sort().reverse();
+  // 每个月内按创建时间降序（最新记的在最上面）；created_at 相同（如提现联动）按 id 降序
+  months.forEach(function (m) {
+    groups[m].sort(function (a, b) {
+      var ta = a.created_at || '', tb = b.created_at || '';
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return (a.id || 0) < (b.id || 0) ? 1 : -1;
+    });
+  });
+  var html = '';
+  var curMonth = localTodayStr().slice(0, 7);
+  months.forEach(function (m) {
+    var inc = 0, exp = 0;
+    groups[m].forEach(function (r) {
+      if (r.type === 'income') inc += Number(r.amount) || 0;
+      else if (r.type === 'expense') exp += Number(r.amount) || 0;
+    });
+    var label = (m === curMonth ? '本月' : (parseInt(m.slice(5), 10) + '月'));
+    html += '<div class="list-item"><div class="li-main"><div class="li-title">' +
+      (m.slice(0, 4) + '年' + label) + '</div><div class="li-sub">收入 ¥' + fmt(inc) + ' · 支出 ¥' + fmt(exp) + '</div></div>' +
+      '<div class="li-amount ' + (inc - exp >= 0 ? 'green' : 'red') + '">' + (inc - exp >= 0 ? '+' : '') + '¥' + fmt(inc - exp) + '</div></div>';
+    groups[m].forEach(function (r) {
+      var isToday = r.date === localTodayStr();
+      var dateLabel = isToday ? '今天' : (r.date.slice(5).replace('-', '月') + '日');
+      var amtCls = r.type === 'income' ? 'green' : (r.type === 'expense' ? 'red' : 'blue');
+      var amtSign = r.type === 'income' ? '+¥' : (r.type === 'expense' ? '-¥' : '¥');
+      var sub = r.type === 'transfer' ? (escapeHtml(r.from) + ' → ' + escapeHtml(r.to)) : '';
+      if (r.note) sub = sub ? (sub + ' · ' + escapeHtml(r.note)) : escapeHtml(r.note);
+      html += '<div class="list-item" style="padding-left:14px">' +
+        '<div class="li-main"><div class="li-title" style="font-weight:500">' +
+        dateLabel + ' <span class="tag gray" style="margin-left:0">' + typeLabel(r.type) + '</span>' +
+        (sub ? ' <span style="font-weight:400;color:var(--muted);font-size:.78rem">' + sub + '</span>' : '') +
+        '</div></div>' +
+        '<div class="li-amount ' + amtCls + '">' + amtSign + fmt(r.amount) + '</div>' +
+        '<div class="actions"><button class="btn danger sm" onclick="deleteRecord(' + r.id + ')">删</button></div>' +
+        '</div>';
+    });
+  });
+  box.innerHTML = html;
+  var allInc = 0, allExp = 0;
+  state.records.forEach(function (r) {
+    if (r.type === 'income') allInc += Number(r.amount) || 0;
+    else if (r.type === 'expense') allExp += Number(r.amount) || 0;
+  });
+  $('historySum').textContent = '累计收入 ¥' + fmt(allInc) + ' / 支出 ¥' + fmt(allExp);
+}
+
+// ================= 数据同步 =================
+function exportCopy() {
+  var text = JSON.stringify({ v: 3, exported_at: new Date().toISOString(), bills: state.bills, records: state.records, walletLogs: state.walletLogs, withdraws: state.withdraws });
+  $('exportBox').value = text;
+  $('exportBox').select();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { toast('同步码已复制，去另一台设备粘贴导入'); })
+      .catch(function () { toast('已生成同步码，请长按文本框手动复制'); });
+  } else {
+    try { document.execCommand('copy'); toast('同步码已复制'); } catch (e) { toast('已生成同步码，请长按文本框手动复制'); }
+  }
+}
+
+function exportDownload() {
+  var text = JSON.stringify({ v: 3, exported_at: new Date().toISOString(), bills: state.bills, records: state.records, walletLogs: state.walletLogs, withdraws: state.withdraws }, null, 2);
+  var blob = new Blob([text], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '跑单记账备份-' + localTodayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  toast('备份文件已开始下载');
+}
+
+function parseImportText(text) {
+  if (!text || !text.trim()) throw new Error('请先粘贴同步码或选择备份文件');
+  var d = JSON.parse(text.trim());
+  var parsed = migrateOld(d);
+  if (!Array.isArray(parsed.bills) || !Array.isArray(parsed.records)) {
+    throw new Error('同步码格式不正确');
+  }
+  return parsed;
+}
+
+function importData(overwrite) {
+  var text = $('importBox').value;
+  var d;
+  try { d = parseImportText(text); }
+  catch (e) { toast(e.message); return; }
+  if (overwrite) {
+    if (!confirm('覆盖导入会清空当前设备上的所有数据，用导入的数据替换，确定吗？')) return;
+    state.bills = d.bills;
+    state.records = d.records;
+    state.walletLogs = d.walletLogs;
+    state.withdraws = d.withdraws;
+  } else {
+    function mergeById(arr1, arr2, dateKey) {
+      var map = {};
+      arr1.forEach(function (x) { map[x.id] = x; });
+      arr2.forEach(function (x) { map[x.id] = x; });
+      return Object.keys(map).map(function (k) { return map[k]; })
+        .sort(function (a, b) { return (a[dateKey] || a.created_at) < (b[dateKey] || b.created_at) ? 1 : -1; });
+    }
+    state.bills = mergeById(state.bills, d.bills, 'created_at');
+    state.records = mergeById(state.records, d.records, 'date');
+    state.walletLogs = mergeById(state.walletLogs, d.walletLogs, 'created_at');
+    state.withdraws = mergeById(state.withdraws, d.withdraws, 'created_at');
+  }
+  if (dbWrite()) {
+    toast(overwrite ? '覆盖导入成功' : '合并导入成功');
+    $('importBox').value = '';
+    $('importFile').value = '';
+    loadAll();
+    renderSyncStat();
+  }
+}
+
+function importFileChange(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    $('importBox').value = String(reader.result || '');
+    importData(false);
+  };
+  reader.onerror = function () { toast('读取文件失败'); };
+  reader.readAsText(file);
+}
+
+function renderSyncStat() {
+  var s = computeStats();
+  var allInc = 0, allExp = 0;
+  state.records.forEach(function (r) {
+    if (r.type === 'income') allInc += Number(r.amount) || 0;
+    else if (r.type === 'expense') allExp += Number(r.amount) || 0;
+  });
+  $('syncStat').innerHTML =
+    '<div class="list-item" style="border:none;padding-top:0"><div class="li-main"><div class="li-title">账单</div></div><div class="li-amount red">' + state.bills.length + ' 笔</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">收支记录</div></div><div class="li-amount blue">' + state.records.length + ' 条</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">钱包余额记录 / 提现记录</div></div><div class="li-amount orange">' + state.walletLogs.length + ' / ' + state.withdraws.length + '</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">累计已提现收入 / 支出</div></div><div class="li-amount green">¥' + fmt(allInc) + ' / ¥' + fmt(allExp) + '</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">钱包余额</div></div><div class="li-amount orange">¥' + fmt(s.walletBalance) + '</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">实时预计总收入</div></div><div class="li-amount green">¥' + fmt(s.projectedIncome) + '</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">实时预计总余额（扣支出）</div></div><div class="li-amount ' + (s.projectedBalance >= 0 ? 'green' : 'red') + '">¥' + fmt(s.projectedBalance) + '</div></div>' +
+    '<div class="list-item" style="border:none"><div class="li-main"><div class="li-title">可用资金（收入-支出）</div></div><div class="li-amount ' + (s.balance >= 0 ? 'green' : 'red') + '">¥' + fmt(s.balance) + '</div></div>';
+}
+
+// ================= 初始化 =================
+var APP_VERSION = 'V25';
+(function () {
+  var f = $('appFooter');
+  if (f) f.textContent = '跑单记账 ' + APP_VERSION + ' · 手机电脑共用此网址 · 更新后如显示旧界面请强制刷新（电脑 Ctrl+F5）';
+})();
+$('recDate').value = localTodayStr();
+$('filterMonth').value = viewFilter.month;
+$('filterFrom').value = localTodayStr();
+$('filterTo').value = localTodayStr();
+initEBillDayOptions();
+renderCalendar();
+setRecordType('income');
+loadAll();
+// 启用了云端时，页面获得焦点自动拉取最新数据
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden) { loadAll(); cloudPull(); }
+});
+// 启用了云端时，每 30 秒自动拉取（页面挂在前台也能收到另一台设备的改动）
+setInterval(function () {
+  if (!document.hidden) cloudPull();
+}, 30000);
+</script>
+</body>
+</html>
